@@ -1,0 +1,25 @@
+<output>
+  <text>The selected band is Y</text>
+  <fig>/datos/ext/proyecto/emir/pages/observing-with-emir/observing-tools/tmp_files/emir-KNr5O8_photo.png</fig>
+  <text>The RON is 10.0 e-/px</text>
+  <text>The dark current is 0.2 e-/s/px</text>
+  <text>The well depth is 166981 e-</text>
+  <text>The gain is 4.0e-/adu</text>
+  <text>The sky brightness in the selected band: 12.50 mag</text>
+  <table>
+	For the selected time range, the expected S/N are:
+	    t(s)	     S/N	Saturation?
+	----------------------
+	     1.0	     3.7	No
+	     1.9	     5.2	No
+	     2.8	     6.3	No
+	     3.7	     7.2	Yes
+	     4.6	     8.0	Yes
+	     5.5	     8.8	Yes
+	     6.5	     9.5	Yes
+	     7.4	    10.1	Yes
+	     8.3	    10.7	Yes
+	     9.2	    11.3	Yes
+	    10.0	    11.8	Yes
+</table>
+</output>

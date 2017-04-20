@@ -1,0 +1,50 @@
+<output>
+  <fig>/datos/ext/proyecto/emir/pages/observing-with-emir/observing-tools/tmp_files/emir-GzjVro_spec.png</fig>
+  <text>SOURCE:</text>
+  <text>Point Source (Vega Mag) = 8.500</text>
+  <text>Template: Black Body</text>
+  <text>Temperature = 10000.0 K</text>
+  <text>----------------------------------------------------------------</text>
+  <text>OBSERVATION:</text>
+  <text>Operation: Spectroscopy</text>
+  <text>Exposure time(s) = 10-100</text>
+  <text>Number of exposures: Object 1, Sky 1</text>
+  <text>----------------------------------------------------------------</text>
+  <text>TELESCOPE AND INSTRUMENT:</text>
+  <text>Grism: K</text>
+  <text>Slit width = 0.80 arcsec</text>
+  <text>Telescope collecting area = 73.0 m&lt;sup&gt;2&lt;/sup&gt;</text>
+  <text>Spatial scale = 0.1922 arcsec/pix </text>
+  <text>Readout noise = 15.0 e&lt;sup&gt;-&lt;/sup&gt; </text>
+  <text>Dark current = 0.25 e&lt;sup&gt;-&lt;/sup&gt;/hr</text>
+  <text>Well depth = 166981.0 e&lt;sup&gt;-&lt;/sup&gt;</text>
+  <text>Gain = 4.00 e&lt;sup&gt;-&lt;/sup&gt;/ADU</text>
+  <text>----------------------------------------------------------------</text>
+  <text>OBSERVING CONDITIONS:</text>
+  <text>Airmass = 1.50</text>
+  <text>Seeing = 0.80 arcsec FWHM</text>
+  <text>Sky brightness = 12.50 Vega mag / arcsec&lt;sup&gt;2&lt;/sup&gt;</text>
+  <text> </text>
+  <text>----------------------------------------------------------------</text>
+  <text>RESULTS:</text>
+  <text>Wavelength coverage: 2.03 - 2.39 &amp;mu;</text>
+  <text>Dispersion 1.72 &amp;Aring;/pix</text>
+  <text>Resolution element 7.18 &amp;Aring;</text>
+  <text>In-slit fraction 0.7549 </text>
+  <text>Nominal Spectral resolution 4269.9400 </text>
+  <text>Achieved Spectral resolution 3077.5593 </text>
+  <table>
+	For the selected time range, the expected S/N per pixel are:
+	    t(s)	     S/N	Saturation?
+	----------------------
+	    10.0	   171.0	No
+	    20.0	   248.4	No
+	    30.0	   307.0	No
+	    40.0	   356.2	No
+	    50.0	   399.4	No
+	    60.0	   438.4	No
+	    70.0	   474.2	No
+	    80.0	   507.5	No
+	    90.0	   538.7	No
+</table>
+</output>

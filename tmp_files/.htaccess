@@ -1,0 +1,6 @@
+# Only allow the access to images *.jpg and *.png
+
+order allow,deny
+<Files ~ "\.(jpg|png)$">
+   allow from all
+</Files>

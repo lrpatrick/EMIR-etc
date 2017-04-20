@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<data_etc>
+  <source_config>
+    <magnitude>0.0</magnitude>
+    <source_type>Point</source_type>
+  </source_config>
+  <spectral_template>
+    <template>Black body</template>
+    <model>k2iii</model>
+    <body_temp>10000</body_temp>
+    <line_center>2.26</line_center>
+    <line_fwhm>1.5</line_fwhm>
+    <line_peakf>1.0</line_peakf>
+    <model_file>/datos/ext/proyecto/emir/pages/observing-with-emir/observing-tools/tmp_files/emir-M3Pt4N.dat</model_file>
+  </spectral_template>
+  <observ_config>
+    <airmass>1.5</airmass>
+    <seeing>0.8</seeing>
+  </observ_config>
+  <operation_info>
+    <operation>Spectroscopy</operation>
+    <photo_filter>Ks</photo_filter>
+    <photo_exp_time>1-10</photo_exp_time>
+    <photo_nf_obj>1</photo_nf_obj>
+    <photo_nf_sky>1</photo_nf_sky>
+    <spec_grism>K</spec_grism>
+    <spec_slit_width>0.8</spec_slit_width>
+    <spec_exp_time>100</spec_exp_time>
+    <spec_nf_obj>1</spec_nf_obj>
+    <spec_nf_sky>1</spec_nf_sky>
+  </operation_info>
+</data_etc>

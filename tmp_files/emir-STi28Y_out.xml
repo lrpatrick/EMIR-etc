@@ -1,0 +1,44 @@
+<output>
+  <fig>/datos/ext/proyecto/emir/pages/observing-with-emir/observing-tools/tmp_files/emir-STi28Y_photo.png</fig>
+  <text>SOURCE:</text>
+  <text>Point Source (Vega Mag) = 0.000 </text>
+  <text>Template: Black Body. Temperature = 10000.0 K</text>
+  <text>-------------------------------------------</text>
+  <text>OBSERVATION:</text>
+  <text>Photometry</text>
+  <text>Sec per exposure = 10-1000</text>
+  <text>Number of exposures: Object 10, Sky 10 </text>
+  <text>-------------------------------------------</text>
+  <text>TELESCOPE AND INSTRUMENT:</text>
+  <text>Filter = Ks </text>
+  <text>Telescope collecting area 74.0 m&lt;sup&gt;2&lt;/sup&gt;</text>
+  <text>Spatial scale 0.1950 arcsec/pix </text>
+  <text>Readout noise 10.0 e&lt;sup&gt;-&lt;/sup&gt; </text>
+  <text>Dark current 0.20 e&lt;sup&gt;-&lt;/sup&gt;/hr</text>
+  <text>Well depth 166981.0 e&lt;sup&gt;-&lt;/sup&gt;</text>
+  <text>Gain 4.00 e&lt;sup&gt;-&lt;/sup&gt;/ADU</text>
+  <text>-------------------------------------------</text>
+  <text>OBSERVING CONDITIONS:</text>
+  <text>Airmass 1.50</text>
+  <text>Seeing 0.80 arcsec FWHM</text>
+  <text>Sky brightness 12.50 Vega mag / arcsec&lt;sup&gt;2&lt;/sup&gt;</text>
+  <text> </text>
+  <text>-------------------------------------------</text>
+  <text>RESULTS:</text>
+  <table>
+	For the selected time range, the expected S/N are:
+	    t(s)	     S/N	Saturation?
+	----------------------
+	    10.0	776008.4	Yes
+	    19.1	1072209.7	Yes
+	    28.2	1302719.5	Yes
+	    37.3	1498173.1	Yes
+	    46.4	1670918.1	Yes
+	    55.5	1827405.8	Yes
+	    64.5	1971511.2	Yes
+	    73.6	2105778.0	Yes
+	    82.7	2231982.5	Yes
+	    91.8	2351423.0	Yes
+	   100.0	2453954.0	Yes
+</table>
+</output>

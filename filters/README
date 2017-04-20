@@ -1,0 +1,21 @@
+Author: LRP
+Date: 17-03-2017
+Description: README for ETC filters
+
+Filter files must conform to some standards:
+
+Naming convention 
+File organisation:
+
+unitx
+unity
+col_x col_y
+i    0.0
+... 
+N    0.0
+
+This is to trim down the operations the ETC performs and to make sure the interpolation
+routines do not get any false positives
+
+unitx must be microns
+unity must be expressed as a fraction ie. 0% = 0.0, 100% = 1.0

@@ -1,0 +1,42 @@
+#####################
+Author: LRP
+Date: 28-11-2016
+Description: REAME for the updates to ETC
+#####################
+
+    Update on 12-12-2016 to roll back a change made on 09-12-2016
+    self.ldo_hr = (7500 + np.arange(100001)*0.2)*1e-4 changed back to
+    self.ldo_hr = (10000 + np.arange(100001)*0.2)*1e-4 
+
+v.1.0.5 09-12-2016
+    Update for YJ filter, changed wavelength step in php file
+    Updated BrG accepted wavelength ranges in php files
+
+v.1.0.4 08-12-2016
+    Major updates of code standardisation
+    Merged with ETC from Marc Balcells
+    Much more ouput for spec. mode
+
+v.1.0.3 05-12-2016
+    Included fix for using 'Model file' that now does not depend upon the input magnitude
+    Added F123M filter at request of Marc Balcels
+    Updated 07-12-2016 to correct F123M transmission
+
+v.1.0.2 02-12-2016
+    Included fix for available ranges for emission lines in YJ and HK grisms
+
+v1.0.1 28-11-2016
+    Includes data for low-res filters (YJ and HK) with simple 0.4 transmission
+
+v1.0 28-11-2016
+    Version numbers added, corrected output for multiple exposures.
+    Includes data for Y-filter photometry
+
+As of 29-11-2016: Y phot. button included, YJ, HK grisms included.
+Change in the text from "Line Peak Flux" to "Total line flux"
+
+
+TODO -- features to include in updates of the ETC 
+-- Specifiy what seeing band we are talking about
+-- Deal with extended objects in a more complete way
+

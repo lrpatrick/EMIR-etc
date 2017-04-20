@@ -1,0 +1,45 @@
+<output>
+  <fig>/datos/ext/proyecto/emir/pages/observing-with-emir/observing-tools/tmp_files/emir-O0WoKd_photo.png</fig>
+  <text>SOURCE:</text>
+  <text>Point Source (Vega Mag) = 15.000</text>
+  <text>Template: Black Body</text>
+  <text>Temperature = 10000.0 K</text>
+  <text>----------------------------------------------------------------</text>
+  <text>OBSERVATION:</text>
+  <text>Operation: Photometry</text>
+  <text>Exposure time(s) = 100</text>
+  <text>Number of exposures: Object 1, Sky 1</text>
+  <text>----------------------------------------------------------------</text>
+  <text>TELESCOPE AND INSTRUMENT:</text>
+  <text>Filter: Ks </text>
+  <text>Telescope collecting area = 73.0 m&lt;sup&gt;2&lt;/sup&gt;</text>
+  <text>Spatial scale = 0.1922 arcsec/pix </text>
+  <text>Readout noise = 15.0 e&lt;sup&gt;-&lt;/sup&gt; </text>
+  <text>Dark current = 0.25 e&lt;sup&gt;-&lt;/sup&gt;/hr</text>
+  <text>Well depth = 166981.0 e&lt;sup&gt;-&lt;/sup&gt;</text>
+  <text>Gain = 4.00 e&lt;sup&gt;-&lt;/sup&gt;/ADU</text>
+  <text>----------------------------------------------------------------</text>
+  <text>OBSERVING CONDITIONS:</text>
+  <text>Airmass = 1.50</text>
+  <text>Seeing = 0.80 arcsec FWHM</text>
+  <text>Sky brightness = 12.50 Vega mag / arcsec&lt;sup&gt;2&lt;/sup&gt;</text>
+  <text> </text>
+  <text>----------------------------------------------------------------</text>
+  <text>RESULTS:</text>
+  <table>
+	For the selected time range, the expected S/N per pixel are:
+	    t(s)	     S/N	Saturation?
+	----------------------
+	     1.0	    46.3	No
+	     1.9	    64.0	No
+	     2.8	    77.8	No
+	     3.7	    89.5	No
+	     4.6	    99.9	Yes
+	     5.5	   109.3	Yes
+	     6.5	   117.9	Yes
+	     7.4	   125.9	Yes
+	     8.3	   133.5	Yes
+	     9.2	   140.6	Yes
+	    10.0	   146.7	Yes
+</table>
+</output>

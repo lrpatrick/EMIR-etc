@@ -1,0 +1,12 @@
+<output>
+  <text>The selected grism is K</text>
+  <fig>/datos/ext/proyecto/emir/pages/observing-with-emir/observing-tools/tmp_files/emir-AmA7qN_spec.png</fig>
+  <text>The RON is 10.0 e-/px</text>
+  <text>The dark current is 0.2 e-/s/px</text>
+  <text>The well depth is 166981 e-</text>
+  <text>The gain is 4.0e-/adu</text>
+  <text>The sky brightness in the selected band: 12.50 mag</text>
+  <text>For time 100.0 s the expected S/N is 0.0</text>
+  <table>
+</table>
+</output>

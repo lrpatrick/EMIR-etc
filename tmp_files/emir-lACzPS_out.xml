@@ -1,0 +1,18 @@
+<output>
+  <fig>/datos/ext/proyecto/emir/pages/observing-with-emir/observing-tools/tmp_files/emir-lACzPS_spec.png</fig>
+  <text>-------------------------------------------</text>
+  <text>SOURCE:</text>
+  <text>Point Source, Vega Mag = 0.000 </text>
+  <text>Black body, Temperature = 10000.0 K</text>
+  <text>-------------------------------------------</text>
+  <text>OBSERVATION:</text>
+  <text>Spectroscopy</text>
+  <text>Sec per exposure = 100</text>
+  <text>Number of exposures: Object 1, Sky 1 </text>
+  <text>-------------------------------------------</text>
+  <text>The sky brightness in the selected band: 12.50 mag</text>
+  <text>For time 100.0 s the expected S/N is 30840.4</text>
+  <warning>for time 100.0 s some pixels are saturated</warning>
+  <table>
+</table>
+</output>

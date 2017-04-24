@@ -1,0 +1,17 @@
+# Author: LRP
+# Date: 24-05-2017
+# Description:
+Sky files for the EMIR-ETC
+
+These files have been calculated using ESO's skycalc tool with the default
+parameters including a thermal emission source of 280K and an Emissivity = 0.5. 
+
+This setup is chosen to reproduce measured sky values on La Palma:
+
+Band  Measured    SkyCalc estimate (at airmass = 1.0)
+  Y     18.0             17.57
+  J     16.6             16.85
+  H     14.4             14.41
+  K     12.5             12.56
+
+

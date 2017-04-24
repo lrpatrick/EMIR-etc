@@ -91,13 +91,13 @@ filt_ldo['YJ']=np.array(yj_filt['ldo'])
 filt_tr['YJ']=np.array(yj_filt['tr'])
 
 # J-band
-normfilt = 'J'
+# normfilt = 'J'
 # newfilt = 'Y'
-newfilt = 'YJ'
-newfilt = 'F123M'
+# newfilt = 'YJ'
+# newfilt = 'F123M'
 # filt_file=at.read('filters/J_trans.dat',data_start=3,names=['ldo','tr'])
 # filt_file=at.read('filters/Y_trans.dat',data_start=3,names=['ldo','tr'])
-filt_file=at.read('filters/F123M_trans.dat',data_start=3,names=['ldo','tr'])
+# filt_file=at.read('filters/F123M_trans.dat',data_start=3,names=['ldo','tr'])
 # filt_file=at.read('filters/YJ_smooth_trans.dat', data_start=3, names=['ldo', 'tr'])
 
 # H-band
@@ -108,15 +108,15 @@ filt_file=at.read('filters/F123M_trans.dat',data_start=3,names=['ldo','tr'])
 # filt_file=at.read('filters/FeII_trans.dat',data_start=3,names=['ldo','tr'])
 
 # K-band
-# normfilt = 'K'
+normfilt = 'K'
 # newfilt = 'K'
 # newfilt = 'BrG'
 # newfilt = 'H2_10'
-# newfilt = 'H2_21'
+newfilt = 'H2_21'
 # filt_file=at.read('filters/Kshort_trans.dat',data_start=3,names=['ldo','tr'])
 # filt_file=at.read('filters/BrG_trans.dat',data_start=3,names=['ldo','tr'])
 # filt_file = at.read('filters/H2_10_trans.dat', data_start=3, names=['ldo', 'tr'])
-# filt_file=at.read('filters/H2_21_trans.dat',data_start=3,names=['ldo','tr'])
+filt_file=at.read('filters/H2_21_trans.dat',data_start=3,names=['ldo','tr'])
 
 
 filt_ldo[newfilt]=np.array(filt_file['ldo'])
@@ -156,42 +156,30 @@ filt_tr_fine[newfilt] = fbrg(fine_ldo).clip(0, 1)
 # to go from photon/s/m^2/micron to ph/s, but the mirror size
 # is the same for sky and vega, so I skip it, and the sky mags
 # are per arcsec, so I forget that too
-# *(fine_ldo[1]-fine_ldo[0]) removed from these calculations as it is constant
-# in all calculations
 
-v_int_y=np.sum(vega_flux_fine*fine_ldo*
-               filt_tr_fine['Y']*(fine_ldo[1]-fine_ldo[0]))
-sky_int_y=np.sum(sky_flux_fine*fine_ldo*
-                 filt_tr_fine['Y']*(fine_ldo[1]-fine_ldo[0]))
-v_int_j=np.sum(vega_flux_fine*fine_ldo*
-               filt_tr_fine['J']*(fine_ldo[1]-fine_ldo[0]))
-sky_int_j=np.sum(sky_flux_fine*fine_ldo*
-                 filt_tr_fine['J']*(fine_ldo[1]-fine_ldo[0]))
 
-v_int_h=np.sum(vega_flux_fine*fine_ldo*
-               filt_tr_fine['H']*(fine_ldo[1]-fine_ldo[0]))
-sky_int_h=np.sum(sky_flux_fine*fine_ldo*
-                 filt_tr_fine['H']*(fine_ldo[1]-fine_ldo[0]))
+def sum_flux(flux, wvl, filt_profile):
+    return np.sum(flux*wvl*filt_profile*(wvl[1] - wvl[0]))
 
-v_int_k=np.sum(vega_flux_fine*fine_ldo*
-               filt_tr_fine['Ks']*(fine_ldo[1]-fine_ldo[0]))
-sky_int_k=np.sum(sky_flux_fine*fine_ldo*
-                 filt_tr_fine['Ks']*(fine_ldo[1]-fine_ldo[0]))
+v_int_y = sum_flux(vega_flux_fine, fine_ldo, filt_tr_fine['Y'])
+sky_int_y = sum_flux(sky_flux_fine, fine_ldo, filt_tr_fine['Y'])
+v_int_j = sum_flux(vega_flux_fine, fine_ldo, filt_tr_fine['J'])
+sky_int_j = sum_flux(sky_flux_fine, fine_ldo, filt_tr_fine['J'])
 
-# HK
-v_int_hk=np.sum(vega_flux_fine*fine_ldo*
-                filt_tr_fine['HK']*(fine_ldo[1]-fine_ldo[0]))
-sky_int_hk = np.sum(sky_flux_fine*fine_ldo*
-                    filt_tr_fine['HK']*(fine_ldo[1]-fine_ldo[0]))
-v_int_yj=np.sum(vega_flux_fine*fine_ldo*
-                filt_tr_fine['YJ']*(fine_ldo[1]-fine_ldo[0]))
-sky_int_yj = np.sum(sky_flux_fine*fine_ldo*
-                    filt_tr_fine['YJ']*(fine_ldo[1]-fine_ldo[0]))
+v_int_h = sum_flux(vega_flux_fine, fine_ldo, filt_tr_fine['H'])
+sky_int_h = sum_flux(sky_flux_fine, fine_ldo, filt_tr_fine['H'])
+
+v_int_k = sum_flux(vega_flux_fine, fine_ldo, filt_tr_fine['Ks'])
+sky_int_k = sum_flux(sky_flux_fine, fine_ldo, filt_tr_fine['Ks'])
+
+# HK & YJ
+v_int_hk = sum_flux(vega_flux_fine, fine_ldo, filt_tr_fine['HK'])
+sky_int_hk = sum_flux(sky_flux_fine, fine_ldo, filt_tr_fine['HK'])
+v_int_yj = sum_flux(vega_flux_fine, fine_ldo, filt_tr_fine['YJ'])
+sky_int_yj = sum_flux(sky_flux_fine, fine_ldo, filt_tr_fine['YJ'])
 # New filter
-v_int_newfilt=np.sum(vega_flux_fine*fine_ldo*
-                     filt_tr_fine[newfilt]*(fine_ldo[1]-fine_ldo[0]))
-sky_int_newfilt = np.sum(sky_flux_fine*fine_ldo*
-                         filt_tr_fine[newfilt]*(fine_ldo[1]-fine_ldo[0]))
+v_int_newfilt = sum_flux(vega_flux_fine, fine_ldo, filt_tr_fine[newfilt])
+sky_int_newfilt = sum_flux(sky_flux_fine, fine_ldo, filt_tr_fine[newfilt])
 
 print('Vega integral in {0} = {1}'
       .format(newfilt, v_int_newfilt))

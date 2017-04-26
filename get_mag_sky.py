@@ -56,6 +56,10 @@ vega_flux=np.array(vega['fl'])*1e3*5.034118201E+18*vega_ldo
 sky = pyfits.open('sky/skytable.fits')
 sky_ldo = sky[1].data.field('lam')
 sky_flux = sky[1].data.field('flux')
+
+sky_new = pyfits.open('sky/skytable_10_new.fits')
+sky_ldo_new = sky_new[1].data.field('lam')
+sky_flux_new = sky_new[1].data.field('flux')
 # sky=at.read('sky/sky_rad_10.txt',data_start=3,names=['ldo','fl'])
 # # this is nm, so to micron:
 # sky_ldo=np.array(sky['ldo'])*1e-3

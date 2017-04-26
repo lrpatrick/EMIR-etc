@@ -335,11 +335,17 @@ class EmirGui:
         # the other grisms have the same name as their respective filters
         self.mag_sky = con.get_skymag(self.grismname)
 
-        # 1.- Scale object & sky with Vega. Note: the per angstrom dependence
+        # 1.- Calculate the wavelengths visible in the detector
+        self.cenwl = (self.ldo_hr*self.dispersive).sum()/(self.dispersive).sum()
+        self.dpx = (self.cenwl/self.specres)/3.
+        self.res_ele = self.dpx*(self.slitwidth/(params['scale']))
+        self.ldo_px = (np.arange(2048) - 1024)*self.dpx + self.cenwl
+
+        # 2.- Scale object & sky with Vega. Note: the per angstrom dependence
         # of the SED is removed later, when the ldo per pixel is calculated
 
         # In case of an emission line, there is no need to re-normalize
-        # ####################################################################
+
         # CGF 02/12/16
         if ff['template'] == 'Emission line':
             no = self.obj*params['area']
@@ -350,54 +356,69 @@ class EmirGui:
             no = (10**(-1*self.mag/2.5))*\
                 mod.vega(self.obj, self.vega, self.filt_hr)*params['area']
 
-        # ####################################################################
-
-        # Sky
-        ns = (10**(-1*self.mag_sky/2.5))*\
-            mod.vega(self.sky_e, self.vega, self.filt_hr)*params['area']
-
-        #    2.- Calculate the wavelengths visible in the detector
-        self.cenwl = (self.ldo_hr*self.dispersive).sum()/(self.dispersive).sum()
-        self.delta_px = (self.cenwl/self.specres)/3.
-        self.res_ele = self.delta_px*(self.slitwidth/(params['scale']))
-        self.ldo_px = (np.arange(2048) - 1024)*self.delta_px + self.cenwl
-
-        #    3.- Convolve the SEDs with the proper resolution
-        #        Delta(lambda) is evaluated at the central wavelength
+        # 3.- Convolve the SEDs with the proper resolution
+        #     Delta(lambda) is evaluated at the central wavelength
 
         con_obj = mod.convolres(self.ldo_hr,
                                 texp*self.slitloss*(no*self.dispersive*
-                                                    self.trans*
-                                                    self.sky_t),
+                                                    self.trans*self.sky_t),
                                 self.res_ele)
-        con_sky = mod.convolres(self.ldo_hr,
-                                texp*(ns*self.dispersive*self.trans),
-                                self.res_ele)
+        # Added by LRP from FGL's code:
+        # Get this working for the HK grism then we can tune it up and add the
+        # YJ girms
+        if self.grismname == 'HK':
+            # Split spectra into two parts:
+            # This wavelength step is different to that at the start of this code
+            ldo_hr_blue = np.arange(12000, 18998, 2)*1e-4
+            ldo_hr_red = np.arange(19000, 27000, 2)*1e-4
+            # Vega:
+            vega_flux_blue = mod.spec_int(self.ldo_hr, self.vega, ldo_hr_blue)
+            vega_flux_red = mod.spec_int(self.ldo_hr, self.vega, ldo_hr_red)
+            # Sky:
+            sky_flux_blue = mod.spec_int(self.ldo_hr, self.sky_e, ldo_hr_blue)
+            sky_flux_red = mod.spec_int(self.ldo_hr, self.sky_e, ldo_hr_red)
+            # Filt:
+            filt_tr_blue = mod.spec_int(self.ldo_hr, self.filt_hr, ldo_hr_blue).clip(0, 1)
+            filt_tr_red = mod.spec_int(self.ldo_hr, self.filt_hr, ldo_hr_red).clip(0, 1)
 
-        # Changes suggested by CGF 27-01-2017
-        # Dispersion
-        # This is fixed for each grism
-        # self.delta_px = self.ldo_px[1] - self.ldo_px[0]
-        # end changes
+            # Calculate ns:
+            ns_blue = (10**(-1*con.get_skymag('H')/2.5))*\
+                mod.vega(sky_flux_blue, vega_flux_blue, filt_tr_blue)*params['area']
 
-        # self.cenwl = (self.ldo_hr*self.dispersive).sum()/(self.dispersive).sum()
-        # self.res_ele = (self.cenwl/self.specres)/3.
-        # # Calculation of resolution element updated by LRP,FGL, GCF 09-12-2016
-        # # self.res_ele = ((self.cenwl/self.specres)/self.slitwidth)\
-        # #     *params['scale']
-        # self.ldo_px = (np.arange(2048) - 1024)*self.res_ele + self.cenwl
-        # self.delta_px = self.ldo_px[1] - self.ldo_px[0]
+            ns_red = (10**(-1*con.get_skymag('K')/2.5))*\
+                mod.vega(sky_flux_red, vega_flux_red, filt_tr_red)*params['area']
+            con_sky_blue = mod.convolres(ldo_hr_blue,
+                                         texp*self.slitloss*(ns_blue*filt_tr_blue*0.4*0.2),
+                                         self.res_ele)
+            con_sky_red = mod.convolres(ldo_hr_red,
+                                        texp*self.slitloss*(ns_red*filt_tr_red*0.4*0.2),
+                                        self.res_ele)
+            sp_sky_blue = self.dpx*mod.spec_int(ldo_hr_blue,
+                                                con_sky_blue*params['scale']**2,
+                                                self.ldo_px)
+            sp_sky_red = self.dpx*mod.spec_int(ldo_hr_red,
+                                               con_sky_red*params['scale']**2,
+                                               self.ldo_px)
+            sp_sky = sp_sky_blue + sp_sky_red
+        else:
+            # Sky
+            ns = (10**(-1*self.mag_sky/2.5))*\
+                mod.vega(self.sky_e, self.vega, self.filt_hr)*params['area']
 
-        #    4.- Interpolate SEDs over the observed wavelengths
-        #    and estimate the STON
+            con_sky = mod.convolres(self.ldo_hr,
+                                    texp*(ns*self.dispersive*self.trans),
+                                    self.res_ele)
 
-        sp_sky = self.delta_px*mod.spec_int(self.ldo_hr,
-                                            con_sky*params['scale']**2,
-                                            self.ldo_px)
+            #    4.- Interpolate SEDs over the observed wavelengths
+            #    and estimate the Signal to Noise (STON)
+
+            sp_sky = self.dpx*mod.spec_int(self.ldo_hr,
+                                           con_sky*params['scale']**2,
+                                           self.ldo_px)
+        # import pdb; pdb.set_trace()
 
         if ff['source_type'] == 'Point':
-            sp_obj = self.delta_px*mod.spec_int(self.ldo_hr, con_obj,
-                                                self.ldo_px)
+            sp_obj = self.dpx*mod.spec_int(self.ldo_hr, con_obj, self.ldo_px)
             im_spec = np.zeros((len(sp_obj), 100))
             im_sky = np.zeros((len(sp_obj), 100))
             total_noise = np.zeros((len(sp_obj), 100))
@@ -420,20 +441,17 @@ class EmirGui:
 
             r = np.abs(np.arange(100) - 50)
             # Receta de Peter
-            ind = (np.where(r <= 1.2*self.seeing/params['scale']))[0]
+            ind = np.where(r <= 1.2*self.seeing/params['scale'])[0]
 
-            # This is the old version, I think the noise is wrong,
-            # as the summation is not 2D
-            # ston_sp=im_spec[:,ind].sum(1)/np.sqrt((im_noise[ind]**2).sum())
-            # 29/12/2013
+            # S/N calculation signal-to-noise
             ston_sp = (im_spec - im_sky)[:, ind].sum(1)/\
                 np.sqrt((total_noise[:, ind]**2).sum(1))
             satur = mod.checkforsaturation(im_spec[:, ind])
 
         elif ff['source_type'] == 'Extended':
-            sp_obj = self.delta_px*mod.spec_int(self.ldo_hr,
-                                                con_obj*params['scale']**2,
-                                                self.ldo_px)
+            sp_obj = self.dpx*mod.spec_int(self.ldo_hr,
+                                           con_obj*params['scale']**2,
+                                           self.ldo_px)
             im_noise = np.sqrt((mod.getnoise(sp_obj + sp_sky, texp)/
                                 np.sqrt(nobj))**2 +
                                (mod.getnoise(sp_sky, texp)/np.sqrt(nsky))**2)
@@ -443,17 +461,15 @@ class EmirGui:
 
         # Calculate original spectrum for display
 
-        con_0 = mod.convolres(self.ldo_hr, self.slitloss*texp*no,
-                              self.delta_px)
+        con_0 = mod.convolres(self.ldo_hr, self.slitloss*texp*no, self.dpx)
         # con_0 = mod.convolres(self.ldo_hr, self.slitloss*texp*no,
         #                       self.cenwl/self.specres)
         if ff['source_type'] == 'Point':
-            sp_0 = mod.spec_int(self.ldo_hr, con_0, self.ldo_px)*self.delta_px
+            sp_0 = mod.spec_int(self.ldo_hr, con_0, self.ldo_px)*self.dpx
 
         elif ff['source_type'] == 'Extended':
-            sp_0 = self.delta_px*mod.spec_int(self.ldo_hr,
-                                              con_0*params['scale']**2,
-                                              self.ldo_px)
+            sp_0 = self.dpx*mod.spec_int(self.ldo_hr, con_0*params['scale']**2,
+                                         self.ldo_px)
         # Update by LRP from MBC, this function now returns more parameters
         # MB 2016-09-29 return source counts as well
         # return ston_sp, sp_0/sp_0.max(), satur
@@ -704,7 +720,7 @@ class EmirGui:
         tabletext = ""
         if ff['operation']=='Spectroscopy':
             ET.SubElement(output, "text").text = "Wavelength coverage: {0:.2f} - {1:.2f} &mu;".format(self.ldo_px[0],self.ldo_px[-1])
-            ET.SubElement(output, "text").text = "Dispersion {0:.2f} &Aring;/pix".format(self.delta_px*1e4)
+            ET.SubElement(output, "text").text = "Dispersion {0:.2f} &Aring;/pix".format(self.dpx*1e4)
             # ET.SubElement(output, "text").text = "Resolution element {0:.2f} &Aring;".format(self.cenwl*1e4/self.specres) 
             ET.SubElement(output, "text").text = "Resolution element {0:.2f} &Aring;".format(self.res_ele*1e4) 
             ET.SubElement(output, "text").text = "In-slit fraction {0:.4f} ".format(self.slitloss)

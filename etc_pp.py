@@ -58,7 +58,10 @@ ldo_px = (np.arange(2048) - 1024)*delta_px + cenwl
 
 #    3.- Convolve the SEDs with the proper resolution
 #        Delta(lambda) is evaluated at the central wavelength
-
+# Factors:
+# dispersion = filt_tr*grism_tr(0.4)
+# optical_transmission = 0.2 ... but where has this value come from?
+# additional factor of slitloss = 0.8
 con_sky_blue = mod.convolres(ldo_hr_blue,
                              texp*loss*(ns_blue*filt_tr_blue*0.4*0.2),
                              res_element)*area

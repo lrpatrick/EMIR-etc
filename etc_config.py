@@ -137,8 +137,10 @@ def get_grism(grism='K'):
 def get_skymag(filt):
     """
     Return the sky magnitude appropriate for the filter
-    J, H and K values are emprical values from an INT observations
-    (Where is the reference for this?)
+    J, H and K values are emprical values from La Palma technical note #115
+    http://www.ing.iac.es/Astronomy/observing/conditions/skybr/skybr.html
+    Note: Value for K quote on document is typo, should be 12.5 not 12.0
+
     All other filters are calibrated to these measurements.
     Calculated using the get_mag_sky.py routine (author: GCF)
 

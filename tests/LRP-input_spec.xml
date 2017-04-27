@@ -3,10 +3,10 @@
     <country name="Liechtenstein">
         <magnitude>16.</magnitude>
         <source_type>Point</source_type>
-        <template>Black body</template>
+        <template>Emission line</template>
         <model>b0i</model>
         <body_temp>10000.</body_temp>
-        <line_center>2.260001</line_center>
+        <line_center>2.2</line_center>
         <line_fwhm>1.5</line_fwhm>
         <line_peakf>1.0</line_peakf>
         <airmass>1.5</airmass>

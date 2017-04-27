@@ -222,11 +222,20 @@ class EmirGui:
                 saturated, params = self.getSpecSton(self.texp, self.nobj,
                                                      self.nsky)
             if ff['template'] == 'Emission line':
+                # np.argmax(ston) then get the signal from the pixels surrounding the max
+                # idx_sn = np.argmax(ston)
+                # num_pix = np.int(np.round(self.res_ele/self.dpx))
+                # idx_res_ele = [np.arange(idx_sn - num_pix/2, idx_sn + num_pix/2, 1)]
+                # ston_inresele = ston[idx_res_ele] -- this step is the problem
+                # ston_resele = np.sum(ston_inresele)
+                # import pdb; pdb.set_trace()
+                ston_resele = np.max(ston)*self.res_ele/self.dpx
                 self.printXML(self.texp, [np.max(src_cnts)],
                               [np.median(sky_cnts[np.nonzero(sky_cnts)])],
                               [np.max(ston)],
                               saturated, **params)
             else:
+                ston_resele = np.median(ston[np.nonzero(ston)])*self.res_ele/self.dpx
                 self.printXML(self.texp,
                               [np.median(src_cnts[np.nonzero(src_cnts)])],
                               [np.median(sky_cnts[np.nonzero(sky_cnts)])],
@@ -253,7 +262,6 @@ class EmirGui:
             plt.xlim(self.ldo_px[0], self.ldo_px[-1])
             plt.xlabel('Wavelength (micron)')
             plt.ylabel('Source ADU/pixel')
-            plt.grid()
 
             plt.subplot(325)
             plt.plot(self.ldo_px, sp)
@@ -367,53 +375,32 @@ class EmirGui:
         # Added by LRP from FGL's code:
         # Get this working for the HK grism then we can tune it up and add the
         # YJ girms
-        if self.grismname == 'HK':
-            # Split spectra into two parts:
-            # lambda:
-            lhr_b = np.arange(12000, 18998, .2)*1e-4
-            lhr_r = np.arange(19000, 27000, .2)*1e-4
-            # Vega:
-            vflux_b = mod.spec_int(self.ldo_hr, self.vega, lhr_b)
-            vflux_r = mod.spec_int(self.ldo_hr, self.vega, lhr_r)
-            # Sky:
-            sflux_b = mod.spec_int(self.ldo_hr, self.sky_e, lhr_b)
-            sflux_r = mod.spec_int(self.ldo_hr, self.sky_e, lhr_r)
-            # Filter transmission:
-            ftr_b = mod.spec_int(self.ldo_hr, self.filt_hr, lhr_b).clip(0, 1)
-            ftr_r = mod.spec_int(self.ldo_hr, self.filt_hr, lhr_r).clip(0, 1)
-            # Dispersion (fliter*grism)
-            disp_b = mod.spec_int(self.ldo_hr, self.dispersive, lhr_b).clip(0, 1)
-            disp_r = mod.spec_int(self.ldo_hr, self.dispersive, lhr_r).clip(0, 1)
-            # Telescope optics:
-            otr_b = mod.spec_int(self.ldo_hr, self.trans, lhr_b).clip(0, 1)
-            otr_r = mod.spec_int(self.ldo_hr, self.trans, lhr_r).clip(0, 1)
-            # Calculate ns -- sky spectrum for each filter scaled to vega
-            ns_b = (10**(-1*con.get_skymag('H')/2.5))*\
-                mod.vega(sflux_b, vflux_b, ftr_b)*params['area']
+        if self.grismname == 'YJ' or self.grismname == 'HK':
+            # Split spectra into two parts depending on the grism:
 
-            ns_r = (10**(-1*con.get_skymag('K')/2.5))*\
-                mod.vega(sflux_r, vflux_r, ftr_r)*params['area']
-            # import pdb; pdb.set_trace()
+            gname_b, gname_r = self.grismname[0], self.grismname[1]
+            split = {'YJ': 1.1500,
+                     'HK': 1.9000}
+            # Filters:
+            filt_b = self.filt_hr * (self.ldo_hr < split[self.grismname])
+            filt_r = self.filt_hr * (self.ldo_hr >= split[self.grismname])
 
-            # Sky spectra for ETC parameters
-            # scale sky spectrum by ETC parameters for:
-            # time exposed, optics, filter and grirms
-            # disp = (filt*grism)
-            sky_hr_b = texp*(ns_b*otr_b*disp_b)  # *self.slitloss*0.2
-            sky_hr_r = texp*(ns_r*otr_r*disp_r)  # *self.slitloss*0.2
-            # Sky spectra at correct resolution
-            con_sky_b = mod.convolres(lhr_b, sky_hr_b, self.res_ele)
-            con_sky_r = mod.convolres(lhr_r, sky_hr_r, self.res_ele)
-            sp_sky_blue = self.dpx*mod.spec_int(lhr_b,
-                                                con_sky_b*params['scale']**2,
-                                                self.ldo_px)
-            sp_sky_red = self.dpx*mod.spec_int(lhr_r,
-                                               con_sky_r*params['scale']**2,
-                                               self.ldo_px)
-            # Cheap fix to an interpolation problem:
-            sp_sky_blue[np.where(self.ldo_px > 1.9)] = 0.0
-            sp_sky_red[np.where(self.ldo_px < 1.9)] = 0.0
-            sp_sky = sp_sky_blue + sp_sky_red
+            ns_b = 10**(-con.get_skymag(gname_b)/2.5)*\
+                mod.vega(self.sky_e, self.vega, filt_b)*params['area']
+            ns_r = 10**(-con.get_skymag(gname_r)/2.5)*\
+                mod.vega(self.sky_e, self.vega, filt_r)*params['area']
+
+            con_sky_b = mod.convolres(self.ldo_hr,
+                                      texp*(ns_b*self.dispersive*self.trans),
+                                      self.res_ele)
+            con_sky_r = mod.convolres(self.ldo_hr,
+                                      texp*(ns_r*self.dispersive*self.trans),
+                                      self.res_ele)
+            con_sky = (con_sky_b + con_sky_r) / 2.
+
+            sp_sky = self.dpx*mod.spec_int(self.ldo_hr,
+                                           con_sky*params['scale']**2,
+                                           self.ldo_px)
         else:
             # Sky
             ns = (10**(-1*self.mag_sky/2.5))*\
@@ -746,12 +733,14 @@ class EmirGui:
 
             if ff['template'] == 'Emission line':
                 ET.SubElement(output, "text").text = "Maximum counts from object {0:.1f}, median from sky: {1:.1f}".format(signal_obj[0],signal_sky[0])
-                ET.SubElement(output, "text").text = "Maximum S/N = {0:.1f}".format(ston[0])
+                ET.SubElement(output, "text").text = "Maximum S/N = {0:.1f} (per pixel)".format(ston[0])
+                # ET.SubElement(output, "text").text = "Maximum S/N = {0:.1f} (per resolution element)".format(ston[0])
                 ET.SubElement(output, "text").text = "Effective gain = {0:.2f} ".format(params['gain']*self.nobj)
                 # ET.SubElement(output, "text").text = "For time {0:.1f} s the expected S/N is {1:.1f}".format(texp[0]*self.nobj,ston[0])
             else:
-                ET.SubElement(output, "text").text = "Median counts per pixel: from object = {0:.1f}, from sky = {1:.1f}".format(signal_obj[0],signal_sky[0])
+                # ET.SubElement(output, "text").text = "Median counts per pixel: from object = {0:.1f}, from sky = {1:.1f}".format(signal_obj[0],signal_sky[0])
                 ET.SubElement(output, "text").text = "Median S/N per pixel = {0:.1f}".format(ston[0])
+                ET.SubElement(output, "text").text = "Median S/N per resolution element = {0:.1f}".format(ston[0])
                 ET.SubElement(output, "text").text = "Effective gain = {0:.2f} ".format(params['gain']*self.nobj)
                 ET.SubElement(output, "text").text = "For time {0:.1f} s the expected median S/N is {1:.1f}".format(texp[0]*self.nobj, ston[0])
             if satur:

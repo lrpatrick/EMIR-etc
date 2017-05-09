@@ -71,6 +71,8 @@ import matplotlib.pylab as plt
 description = ">> Exposure Time Calculator for EMIR. Contact Lee Patrick"
 usage = "%prog [options]"
 
+version = '2.0.2'
+
 if len(sys.argv) == 1:
     print(help)
     sys.exit()
@@ -670,6 +672,7 @@ class EmirGui:
 
         ET.SubElement(output, "fig").text = fig_name
 
+        ET.SubElement(output, "text").text = "Current ETC Version: {}".format(version)
         ET.SubElement(output, "text").text = "SOURCE:"
         ET.SubElement(output, "text").text = "{0:s} Source (Vega Mag) = {1:.3f}".\
             format(ff['source_type'], self.mag)
@@ -732,17 +735,19 @@ class EmirGui:
             ET.SubElement(output, "text").text = "For {0:d} exposure(s) of {1:.1f} s: ".format(int(self.nobj),texp[0])
 
             if ff['template'] == 'Emission line':
+                snrfac = max(1, np.sqrt(self.lwidth[0]/self.dpx))
+                ET.SubElement(output, "text").text = "Effective gain = {0:.2f} ".format(params['gain']*self.nobj)
                 ET.SubElement(output, "text").text = "Maximum counts from object {0:.1f}, median from sky: {1:.1f}".format(signal_obj[0],signal_sky[0])
-                ET.SubElement(output, "text").text = "Maximum S/N = {0:.1f} (per pixel)".format(ston[0])
-                # ET.SubElement(output, "text").text = "Maximum S/N = {0:.1f} (per resolution element)".format(ston[0])
-                ET.SubElement(output, "text").text = "Effective gain = {0:.2f} ".format(params['gain']*self.nobj)
-                # ET.SubElement(output, "text").text = "For time {0:.1f} s the expected S/N is {1:.1f}".format(texp[0]*self.nobj,ston[0])
+                ET.SubElement(output, "text").text = "Maximum S/N per FWHM = {0:.1f}".format(ston[0]*snrfac)
             else:
-                # ET.SubElement(output, "text").text = "Median counts per pixel: from object = {0:.1f}, from sky = {1:.1f}".format(signal_obj[0],signal_sky[0])
-                ET.SubElement(output, "text").text = "Median S/N per pixel = {0:.1f}".format(ston[0])
-                ET.SubElement(output, "text").text = "Median S/N per resolution element = {0:.1f}".format(ston[0])
                 ET.SubElement(output, "text").text = "Effective gain = {0:.2f} ".format(params['gain']*self.nobj)
-                ET.SubElement(output, "text").text = "For time {0:.1f} s the expected median S/N is {1:.1f}".format(texp[0]*self.nobj, ston[0])
+                ET.SubElement(output, "text").text = "Median counts per pixel: from object = {0:.1f}, from sky = {1:.1f}".format(signal_obj[0],signal_sky[0])
+                if ff['operation']=='Spectroscopy':
+                    snrfac = max(1, np.sqrt(self.slitwidth/params['scale']))
+                    ET.SubElement(output, "text").text = "Median S/N per res elem = {0:.1f}".format(ston[0]*snrfac)
+                else:
+                    ET.SubElement(output, "text").text = "Median S/N per pixel = {0:.1f}".format(ston[0])
+
             if satur:
                 ET.SubElement(output, "warning").text = "for time {0:.1f} s some pixels are saturated".format(texp[0]*self.nobj)
         else:

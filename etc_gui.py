@@ -372,11 +372,14 @@ class EmirGui:
                 # Filters:
                 filt_b = self.filt_hr * (self.ldo_hr < split[self.grismname])
                 filt_r = self.filt_hr * (self.ldo_hr >= split[self.grismname])
-                no = (10**(-1*con.get_skymag(self.gname_r)/2.5))*\
+                no = (10**(-1*self.mag/2.5))*\
                     mod.vega(self.obj, self.vega, filt_r)*params['area']
             else:
                 no = (10**(-1*self.mag/2.5))*\
                     mod.vega(self.obj, self.vega, self.filt_hr)*params['area']
+        # else:
+        #     no = (10**(-1*self.mag/2.5))*\
+        #         mod.vega(self.obj, self.vega, self.filt_hr)*params['area']
 
         # 3.- Convolve the SEDs with the proper resolution
         #     Delta(lambda) is evaluated at the central wavelength
@@ -389,6 +392,14 @@ class EmirGui:
         # Get this working for the HK grism then we can tune it up and add the
         # YJ girms
         if self.grismname == 'YJ' or self.grismname == 'HK':
+            # Split spectra into two parts depending on the grism:
+
+            self.gname_b, self.gname_r = self.grismname[0], self.grismname[1]
+            split = {'YJ': 1.1500,
+                     'HK': 1.9000}
+            # Filters:
+            filt_b = self.filt_hr * (self.ldo_hr < split[self.grismname])
+            filt_r = self.filt_hr * (self.ldo_hr >= split[self.grismname])
 
             ns_b = 10**(-con.get_skymag(self.gname_b)/2.5)*\
                 mod.vega(self.sky_e, self.vega, filt_b)*params['area']
@@ -675,7 +686,7 @@ class EmirGui:
 
         ET.SubElement(output, "fig").text = fig_name
 
-        ET.SubElement(output, "text").text = "Current ETC Version: {0}".format(version)
+        ET.SubElement(output, "text").text = "Current ETC Version: {}".format(version)
         ET.SubElement(output, "text").text = "SOURCE:"
 
         if ff['operation'] == 'Photometry':
@@ -686,8 +697,10 @@ class EmirGui:
                 format(ff['source_type'], self.mag, self.gname_r)
         else:
             ET.SubElement(output, "text").text = "{0:s} Source (Vega Mag) = {1:.3f} {2}".\
-                format(ff['source_type'], self.mag, self.filtname)
+                format(ff['source_type'], self.mag, self.grismname)
 
+        # ET.SubElement(output, "text").text = "{0:s} Source (Vega Mag) = {1:.3f}".\
+        #     format(ff['source_type'], self.mag)
         if ff['template'] == 'Model library':
             ET.SubElement(output, "text").text = "Template: Model library"
             ET.SubElement(output, "text").text= "Spectral Type: {0:s}".format(ff['model'])

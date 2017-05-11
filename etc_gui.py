@@ -71,7 +71,7 @@ import matplotlib.pylab as plt
 description = ">> Exposure Time Calculator for EMIR. Contact Lee Patrick"
 usage = "%prog [options]"
 
-version = '2.0.2'
+version = '2.0.3'
 
 if len(sys.argv) == 1:
     print(help)
@@ -364,8 +364,19 @@ class EmirGui:
                 (self.obj_units != 'normal_photon'):
             no = self.obj*params['area']
         else:
-            no = (10**(-1*self.mag/2.5))*\
-                mod.vega(self.obj, self.vega, self.filt_hr)*params['area']
+            if self.grismname == 'YJ' or self.grismname == 'HK':
+                self.gname_b, self.gname_r = self.grismname[0], self.grismname[1]
+                # Split spectra into two parts depending on the grism:
+                split = {'YJ': 1.1500,
+                         'HK': 1.9000}
+                # Filters:
+                filt_b = self.filt_hr * (self.ldo_hr < split[self.grismname])
+                filt_r = self.filt_hr * (self.ldo_hr >= split[self.grismname])
+                no = (10**(-1*con.get_skymag(self.gname_r)/2.5))*\
+                    mod.vega(self.obj, self.vega, filt_r)*params['area']
+            else:
+                no = (10**(-1*self.mag/2.5))*\
+                    mod.vega(self.obj, self.vega, self.filt_hr)*params['area']
 
         # 3.- Convolve the SEDs with the proper resolution
         #     Delta(lambda) is evaluated at the central wavelength
@@ -378,18 +389,10 @@ class EmirGui:
         # Get this working for the HK grism then we can tune it up and add the
         # YJ girms
         if self.grismname == 'YJ' or self.grismname == 'HK':
-            # Split spectra into two parts depending on the grism:
 
-            gname_b, gname_r = self.grismname[0], self.grismname[1]
-            split = {'YJ': 1.1500,
-                     'HK': 1.9000}
-            # Filters:
-            filt_b = self.filt_hr * (self.ldo_hr < split[self.grismname])
-            filt_r = self.filt_hr * (self.ldo_hr >= split[self.grismname])
-
-            ns_b = 10**(-con.get_skymag(gname_b)/2.5)*\
+            ns_b = 10**(-con.get_skymag(self.gname_b)/2.5)*\
                 mod.vega(self.sky_e, self.vega, filt_b)*params['area']
-            ns_r = 10**(-con.get_skymag(gname_r)/2.5)*\
+            ns_r = 10**(-con.get_skymag(self.gname_r)/2.5)*\
                 mod.vega(self.sky_e, self.vega, filt_r)*params['area']
 
             con_sky_b = mod.convolres(self.ldo_hr,
@@ -672,10 +675,19 @@ class EmirGui:
 
         ET.SubElement(output, "fig").text = fig_name
 
-        ET.SubElement(output, "text").text = "Current ETC Version: {}".format(version)
+        ET.SubElement(output, "text").text = "Current ETC Version: {0}".format(version)
         ET.SubElement(output, "text").text = "SOURCE:"
-        ET.SubElement(output, "text").text = "{0:s} Source (Vega Mag) = {1:.3f}".\
-            format(ff['source_type'], self.mag)
+
+        if ff['operation'] == 'Photometry':
+            ET.SubElement(output, "text").text = "{0:s} Source (Vega Mag) = {1:.3f} {2}".\
+                format(ff['source_type'], self.mag, self.filtname)
+        elif self.grismname == 'YJ' or self.grismname == 'HK':
+            ET.SubElement(output, "text").text = "{0:s} Source (Vega Mag) = {1:.3f} {2}".\
+                format(ff['source_type'], self.mag, self.gname_r)
+        else:
+            ET.SubElement(output, "text").text = "{0:s} Source (Vega Mag) = {1:.3f} {2}".\
+                format(ff['source_type'], self.mag, self.filtname)
+
         if ff['template'] == 'Model library':
             ET.SubElement(output, "text").text = "Template: Model library"
             ET.SubElement(output, "text").text= "Spectral Type: {0:s}".format(ff['model'])

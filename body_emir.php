@@ -81,7 +81,7 @@ function endsWith($haystack, $needle) {
         // Group 0
         'magnitude' => array('group' => 0, 'label' => 'Magnitude',
                              'type' => "Number", 'min' => '0', 'step' => '0.01',
-                             'value' => "0.0", 'unit' => "Vega System" ),
+                             'value' => "0.0", 'unit' => "" ),
         'system' => array('group' => 0, 'label' => 'System',
                           'type' => "Select", 'values' => $system_vals,
                           'value' => "Vega",  'unit' => "",

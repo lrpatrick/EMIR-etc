@@ -121,7 +121,7 @@ class EmirGui:
         self.vega = SpecCurve(config_files['vega']).interpolate(self.ldo_hr)
 
         # Convert magnidutes into Vega system (if appropriate)
-        if ff['system'] == 'Vega':
+        if ff['system'] == 'AB':
             conv_ab = mod.mag_convert(ff['photo_filter'])
             # conv_ab = 0.1
             ff['magnitude'] = float(ff['magnitude'])- conv_ab

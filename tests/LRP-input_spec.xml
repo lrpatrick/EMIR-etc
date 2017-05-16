@@ -2,6 +2,7 @@
 <data>
     <country name="Liechtenstein">
         <magnitude>16.</magnitude>
+        <system>Vega</system>
         <source_type>Point</source_type>
         <template>Emission line</template>
         <model>b0i</model>

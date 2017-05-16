@@ -31,7 +31,9 @@
 			lineCenterData['photo_filter']['Ks']       = [1.90, 2.26, 2.40];
 			lineCenterData['photo_filter']['F123M']    = [1.18, 1.23, 1.28];
 			lineCenterData['photo_filter']['FeII']     = [1.632, 1.647, 1.662];
+			lineCenterData['photo_filter']['FeII_cont']= [1.701, 1.714, 1.728];
 			lineCenterData['photo_filter']['BrG']      = [2.125, 2.175, 2.225];
+			lineCenterData['photo_filter']['BrG_cont'] = [2.112, 2.127, 2.193];
 			lineCenterData['photo_filter']['H2(1-0)']  = [2.110, 2.125, 2.141];
 			lineCenterData['photo_filter']['H2(2-1)']  = [2.235, 2.249, 2.264];
 

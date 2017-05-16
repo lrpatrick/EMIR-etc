@@ -71,7 +71,7 @@ import matplotlib.pylab as plt
 description = ">> Exposure Time Calculator for EMIR. Contact Lee Patrick"
 usage = "%prog [options]"
 
-version = '2.0.3'
+version = '2.0.4'
 
 if len(sys.argv) == 1:
     print(help)
@@ -107,9 +107,6 @@ class EmirGui:
         self.trans = self.qe_hr*self.optics_hr*self.tel_hr
         # End addition
 
-        # Vega spectrum for normalizations
-        self.vega = SpecCurve(config_files['vega']).interpolate(self.ldo_hr)
-
         try:
             ff = emir_guy.readxml(args[0] + '.xml')
         except:
@@ -118,6 +115,16 @@ class EmirGui:
 
         emir_guy.load(self)
         emir_guy.check_inputs(ff, args[0])
+
+        # Vega spectrum for normalizations
+        # import pdb; pdb.set_trace()
+        self.vega = SpecCurve(config_files['vega']).interpolate(self.ldo_hr)
+
+        # Convert magnidutes into Vega system (if appropriate)
+        if ff['system'] == 'Vega':
+            conv_ab = mod.mag_convert(ff['photo_filter'])
+            # conv_ab = 0.1
+            ff['magnitude'] = float(ff['magnitude'])- conv_ab
 
         # Functions for options:
         if ff['operation'] == 'Photometry':
@@ -718,13 +725,20 @@ class EmirGui:
         ET.SubElement(output, "text").text = "----------------------------------------------------------------"
         ET.SubElement(output, "text").text = "OBSERVATION:"
         ET.SubElement(output, "text").text = "Operation: {0:s}".format(ff['operation'])
-        ET.SubElement(output, "text").text = "Exposure time(s) = {0:s}".format(ff['spec_exp_time'])
-        ET.SubElement(output, "text").text = "Number of exposures: Object {0:d}, Sky {1:d}".format(int(self.nobj), int(self.nsky))
-        ET.SubElement(output, "text").text = "----------------------------------------------------------------"
-        ET.SubElement(output, "text").text = "TELESCOPE AND INSTRUMENT:"
         if ff['operation'] == 'Photometry':
+            if self.timerange == 'Range':
+                ET.SubElement(output, "text").text = "Exposure times = {0:8.1f} - {1:8.1f}".format(texp[0], texp[-1])
+            else:
+                ET.SubElement(output, "text").text = "Exposure time(s) = {0:8.1f}".format(texp[0])
+            ET.SubElement(output, "text").text = "Number of exposures: Object {0:d}, Sky {1:d}".format(int(self.nobj), int(self.nsky))
+            ET.SubElement(output, "text").text = "----------------------------------------------------------------"
+            ET.SubElement(output, "text").text = "TELESCOPE AND INSTRUMENT:"
             ET.SubElement(output, "text").text = "Filter: {0:s} ".format(self.filtname)
         else:
+            ET.SubElement(output, "text").text = "Exposure time(s) = {0:s}".format(ff['spec_exp_time'])
+            ET.SubElement(output, "text").text = "Number of exposures: Object {0:d}, Sky {1:d}".format(int(self.nobj), int(self.nsky))
+            ET.SubElement(output, "text").text = "----------------------------------------------------------------"
+            ET.SubElement(output, "text").text = "TELESCOPE AND INSTRUMENT:"
             ET.SubElement(output, "text").text = "Grism: {0:s}".format(self.grismname)
             ET.SubElement(output, "text").text = "Slit width = {0:.2f} arcsec".format(self.slitwidth)
         ET.SubElement(output, "text").text = "Telescope collecting area = {0:.1f} m<sup>2</sup>".format(params['area'])
@@ -757,7 +771,7 @@ class EmirGui:
             ET.SubElement(output, "text").text = "Achieved Spectral resolution {0:.4f} ".format(self.cenwl/self.res_ele)
             # ET.SubElement(output, "text").text = "Central lambda {0:.4f} ".format(self.cenwl)
         if self.timerange != 'Range':
-            ET.SubElement(output, "text").text = "For {0:d} exposure(s) of {1:.1f} s: ".format(int(self.nobj),texp[0])
+            ET.SubElement(output, "text").text = "For {0:d} exposure(s) of {1:.1f} s: ".format(int(self.nobj), texp[0])
 
             if ff['template'] == 'Emission line':
                 snrfac = max(1, np.sqrt(self.lwidth[0]/self.dpx))

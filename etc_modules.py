@@ -200,6 +200,30 @@ def interpolatesky(airmass, wvl):
     return trans_final, rad_final
 
 
+def mag_convert(filt):
+    """
+    The use of these corrections is : m_AB = m_Vega + conv_AB
+
+    #  n       wl_eff     surface   bandpass1  conv_AB
+    #              A          A          A       (mags)
+    Y    1   10187.524   1021.072    642.483    0.621
+    J    2   12565.214   1502.516    951.536    0.950
+    H    3   16352.561   2622.795   1634.486    1.390
+    Ks   4   21674.443   2919.557   1848.038    1.873
+    K    5   21669.438   2917.865   1848.177    1.873
+    """
+    conv_ab = {
+        # Broad band filters:
+        'Y': 0.621, 'J': 0.950, 'H': 1.390, 'Ks': 1.873,
+        # Spectroscopic filters:
+        "YJ": 0., "HK": 0.0, "K": 1.873,
+        # Narrow band filters:
+        "FeII": 0.0, "FeII_cont": 0.0, "BrG": 0.0, "BrG_cont": 0.0, "H2(1-0)": 0.0, "H2(2-1)": 0.0,
+        # Medium band filters:
+        "F123M": 0.0}
+    return conv_ab[filt]
+
+
 def rebinwvl(wvl0, flux, wvl1):
     """Rebin a spectrum onto a coarser wavelength sampling"""
     flux1 = np.zeros_like(wvl1)

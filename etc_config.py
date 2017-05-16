@@ -74,8 +74,12 @@ def get_filter(filt='Ks'):
     # Narrow band photometry:
     elif (filt == 'FeII'):
         filter_file = 'filters/FeII_trans.dat'
+    elif (filt == 'FeII_cont'):
+        filter_file = 'filters/FeII_cont_trans.dat'
     elif (filt == 'BrG'):
         filter_file = 'filters/BrG_trans.dat'
+    elif (filt == 'BrG_cont'):
+        filter_file = 'filters/BrG_cont_trans.dat'
     elif (filt == 'H2(1-0)'):  # Added LRP 16-03-2017
         filter_file = 'filters/H2_10_trans.dat'
     elif (filt == 'H2(2-1)'):  # Added LRP 16-03-2017
@@ -165,40 +169,11 @@ def get_skymag(filt):
         # Spectroscopic filters:
         "YJ": 16.3, "HK": 13.7, "K": 12.5,
         # Narrow band filters:
-        "FeII": 12.5, "BrG": 15.4, "H2(1-0)": 13.3, "H2(2-1)": 12.0,
+        "FeII": 12.5, "FeII_cont": 12.5, "BrG": 15.4, "BrG_cont": 15.4,
+        "H2(1-0)": 13.3, "H2(2-1)": 12.0,
         # Medium band filters:
         "F123M": 17.0}
     return skymag_dict[filt]
-    # skymag_dict = {
-    #     # Broad band filters:
-    #     "Y": 18.0, "J": 16.6, "H": 14.4, "Ks": 12.5,
-    #     # Spectroscopic filters:
-    #     "YJ": 16.3, "HK": 13.7, "K": 12.5,
-    #     # Narrow band filters:
-    #     "FeII": 13.1, "BrG": 13.8, "H2(1-0)": 13.9, "H2(2-1)": 13.9,
-    #     # Medium band filters:
-    #     "F123M": 17.0}
-    # return skymag_dict[filt]
-    # skymag_dict = {
-    #     # Broad band filters:
-    #     "Y": 18.0, "J": 16.6, "H": 14.4, "Ks": 12.5,
-    #     # Spectroscopic filters:
-    #     "YJ": 16.3, "HK": 13.7, "K": 12.5,
-    #     # Narrow band filters:
-    #     "FeII": 13.2, "BrG": 13.8, "H2(1-0)": 13.6, "H2(2-1)": 13.9,
-    #     # Medium band filters:
-    #     "F123M": 16.1}
-    # return skymag_dict[filt]
-    # skymag_dict = {
-    #     # Broad band filters:
-    #     "Y": 17.7, "J": 16.6, "H": 14.4, "Ks": 12.5,
-    #     # Spectroscopic filters:
-    #     "YJ": 15.1, "HK": 11.5, "K": 12.5,
-    #     # Narrow band filters:
-    #     "FeII": 11.8, "BrG": 15.0, "H2(1-0)": 15.3, "H2(2-1)": 15.9,
-    #     # Medium band filters:
-    #     "F123M": 18.3}
-    # return skymag_dict[filt]
 
 
 def get_params():

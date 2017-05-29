@@ -119,13 +119,13 @@ xhkvega, hkvega = sky_vega('filters/HK_paco.dat', 'libs/vegflux_std.dat')
 # hkmag = -2.5*np.log10(np.sum(hkflux[np.where(xhk < 1.9)]/hscale) +
 #                       np.sum(hkflux[np.where(xhk > 1.9)]/kscale))
 # using vega:
-hk_vega_integral = np.trapz(hkvega_fine*fine_ldo, fine_ldo)
-hk_sky_integral = np.trapz(hkflux_fine*fine_ldo, fine_ldo)
+# hk_vega_integral = np.trapz(hkvega_fine*fine_ldo, fine_ldo)
+# hk_sky_integral = np.trapz(hkflux_fine*fine_ldo, fine_ldo)
 
-hk_vega_integral = np.sum(hkvega*xhkvega*(xhkvega[1] - xhkvega[0]))
-hk_sky_integral = np.sum(hkflux*xhk*(xhk[1] - xhk[0]))
-hk_mag_k = -2.5*np.log10(hk_sky_integral*ksf/hk_vega_integral)
-hk_mag_h = -2.5*np.log10(hk_sky_integral*hf/hk_vega_integral)
+# hk_vega_integral = np.sum(hkvega*xhkvega*(xhkvega[1] - xhkvega[0]))
+# hk_sky_integral = np.sum(hkflux*xhk*(xhk[1] - xhk[0]))
+# hk_mag_k = -2.5*np.log10(hk_sky_integral*ksf/hk_vega_integral)
+# hk_mag_h = -2.5*np.log10(hk_sky_integral*hf/hk_vega_integral)
 
 
 # hkmag = -2.5*np.log10((np.sum(hkflux[np.where(xhk < 1.9)])/np.sum(hkvega[np.where(xhkvega < 1.9)]))*ksf +

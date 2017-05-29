@@ -193,7 +193,7 @@ def get_params():
     dark_current = 0.25   # e-/s/px
     readout_noise = 15.0  # e-/px
     well_depth = 166981   # e-
-    gain = 4.0            # e-/ADU
+    gain = 3.33           # e-/ADU
 
     return {'DC': dark_current, 'RON': readout_noise, 'gain': gain,
             'well': well_depth, 'area': collector_area, 'scale': scale}

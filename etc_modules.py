@@ -182,20 +182,27 @@ def interpolatesky(airmass, wvl):
     am = np.array([1.0, 1.5, 2.0, 2.5])
     wvl_ori = sky25[1].data.field('lam')
 
-    t_inter = np.zeros(len(wvl_ori))
-    a_inter = np.zeros(len(wvl_ori))
-    for i in range(len(wvl_ori)):
-        trans = np.array([t10[i], t15[i], t20[i], t25[i]])
-        rad = np.array([e10[i], e15[i], e20[i], e25[i]])
-        inter_func = Inter(am, trans, k=1)
-        t_inter[i] = inter_func(airmass)
-        inter_func = Inter(am, rad, k=1)
-        a_inter[i] = inter_func(airmass)
+    # This should be upated to include all nominal airmass values
+    if airmass == 1.0:
+        t_inter = t10
+        a_inter = e10
+    else:
+        t_inter = np.zeros(len(wvl_ori))
+        a_inter = np.zeros(len(wvl_ori))
+        for i in range(len(wvl_ori)):
+            trans = np.array([t10[i], t15[i], t20[i], t25[i]])
+            rad = np.array([e10[i], e15[i], e20[i], e25[i]])
+            inter_func = Inter(am, trans, k=1)
+            t_inter[i] = inter_func(airmass)
+            inter_func = Inter(am, rad, k=1)
+            a_inter[i] = inter_func(airmass)
 
-    inter_func = Inter(wvl_ori, t_inter, k=3)
+    inter_func = Inter(wvl_ori, t_inter, k=1)
     trans_final = inter_func(wvl)
-    inter_func = Inter(wvl_ori, a_inter, k=3)
+    inter_func = Inter(wvl_ori, a_inter, k=1)
     rad_final = inter_func(wvl)
+
+    # import pdb; pdb.set_trace()
 
     return trans_final, rad_final
 
@@ -203,7 +210,7 @@ def interpolatesky(airmass, wvl):
 def mag_convert(filt):
     """
     The use of these corrections is : m_AB = m_Vega + conv_AB
-
+    # From Roser:
     #  n       wl_eff     surface   bandpass1  conv_AB
     #              A          A          A       (mags)
     Y    1   10187.524   1021.072    642.483    0.621
@@ -211,6 +218,15 @@ def mag_convert(filt):
     H    3   16352.561   2622.795   1634.486    1.390
     Ks   4   21674.443   2919.557   1848.038    1.873
     K    5   21669.438   2917.865   1848.177    1.873
+    #  n     wl_eff     surface   bandpass1  conv_AB
+               A           A          A         mag
+    F123M   12041.662    480.423    282.823    0.872
+    FeII    16469.611    308.730    237.192    1.404
+    FeII c  17140.035    286.924    220.561    1.482
+    BrG     21756.217    367.331    276.122    1.883
+    BrG c   21276.980    312.741    236.999    1.845
+    H2(1-0) 21247.080    317.209    239.540    1.842
+    H2(2-1) 22478.545    305.222    232.791    1.941
     """
     conv_ab = {
         # Broad band filters:
@@ -218,10 +234,26 @@ def mag_convert(filt):
         # Spectroscopic filters:
         "YJ": 0., "HK": 0.0, "K": 1.873,
         # Narrow band filters:
-        "FeII": 0.0, "FeII_cont": 0.0, "BrG": 0.0, "BrG_cont": 0.0, "H2(1-0)": 0.0, "H2(2-1)": 0.0,
+        "FeII": 1.404, "FeII_cont": 1.482, "BrG": 1.883, "BrG_cont": 1.845,
+        "H2(1-0)": 1.842, "H2(2-1)": 1.941,
         # Medium band filters:
-        "F123M": 0.0}
+        "F123M": 0.872}
     return conv_ab[filt]
+
+
+def reality_factor(filt):
+    """Scale the final S/N with an empirically defined reality factor"""
+    reality = {
+        # Broad band filters:
+        'Y': 1.0, 'J': 1.0, 'H': 1.0, 'Ks': 2.0,
+        # Spectroscopic filters:
+        "YJ": 1.0, "HK": 1.0, "K": 1.0,
+        # Narrow band filters:
+        "FeII": 1.0, "FeII_cont": 1.0, "BrG": 1.0, "BrG_cont": 1.0,
+        "H2(1-0)": 1.0, "H2(2-1)": 1.0,
+        # Medium band filters:
+        "F123M": 1.0}
+    return reality[filt]
 
 
 def rebinwvl(wvl0, flux, wvl1):

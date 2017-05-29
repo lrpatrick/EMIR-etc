@@ -71,7 +71,7 @@ import matplotlib.pylab as plt
 description = ">> Exposure Time Calculator for EMIR. Contact Lee Patrick"
 usage = "%prog [options]"
 
-version = '2.0.4'
+version = '2.0.5'
 
 if len(sys.argv) == 1:
     print(help)
@@ -117,14 +117,14 @@ class EmirGui:
         emir_guy.check_inputs(ff, args[0])
 
         # Vega spectrum for normalizations
-        # import pdb; pdb.set_trace()
+
         self.vega = SpecCurve(config_files['vega']).interpolate(self.ldo_hr)
 
         # Convert magnidutes into Vega system (if appropriate)
         if ff['system'] == 'AB':
             conv_ab = mod.mag_convert(ff['photo_filter'])
             # conv_ab = 0.1
-            ff['magnitude'] = float(ff['magnitude'])- conv_ab
+            ff['magnitude'] = float(ff['magnitude']) - conv_ab
 
         # Functions for options:
         if ff['operation'] == 'Photometry':
@@ -164,9 +164,13 @@ class EmirGui:
         self.filt = con.get_filter(self.filtname)
         self.filt_hr = self.filt.interpolate(self.ldo_hr)
 
+        self.filt_hr = self.filt.interpolate(self.ldo_hr)
+        # Addition from MCB's ETC by LRP
+        self.efftotal_hr = self.tel_hr*self.optics_hr*self.filt_hr*self.qe_hr
+
         # Calling the function that calculates the STON
         ston, signal_obj, signal_sky, saturated,\
-            params = self.getPhotSton(self.texp, self.nobj, self.nsky)
+            params, fl_obj, fl_sky, sky_e = self.getPhotSton(self.texp, self.nobj, self.nsky)
         if self.timerange == 'Range':
             # self.printResults(self.texp,ston,saturated)
             self.printXML(self.texp, signal_obj, signal_sky,
@@ -177,11 +181,40 @@ class EmirGui:
                 plt.ylabel('S/N')
             if ff['source_type'] == 'Extended':
                 plt.ylabel('S/N per pixel')
+
             plt.savefig(args[0] + '_photo.png')
         else:
             self.printXML(self.texp, signal_obj, signal_sky,
                           ston, saturated, **params)
             # TODO: Create some meaniningful graphic output!
+            # Create some figures:
+            plt.figure(1, figsize=(15., 10.))
+            # plt.subplot(321)
+            # plt.plot(self.ldo_hr, fl_obj, color='b', label='Obj. spectrum')
+            # plt.xlim(self.ldo_hr[0], self.ldo_hr[-1])
+            # plt.xlabel('Wavelength (micron)')
+            # plt.ylabel('Souce counts ADU/pixel')
+            plt.subplot(322)
+            plt.plot(self.ldo_hr, self.qe_hr, '-r', label='Det')
+            plt.plot(self.ldo_hr, self.filt_hr, '-c', label='Filter')
+            plt.plot(self.ldo_hr, self.optics_hr, '-b', label='Optics')
+            plt.plot(self.ldo_hr, self.tel_hr, '--b', label='Tel')
+            plt.plot(self.ldo_hr, self.efftotal_hr, '-k', label='Qtot')
+            plt.xlim(self.ldo_hr[0], self.ldo_hr[-1])
+            plt.legend(bbox_to_anchor=(1.3, 1.05))
+            plt.xlabel('Wavelength (micron)')
+            plt.ylabel('efficiency / band')
+            # plt.subplot(323)
+            # plt.plot(self.ldo_hr, fl_sky, color='r', label='Sky spectrum')
+            # plt.xlim(self.ldo_hr[0], self.ldo_hr[-1])
+            # plt.xlabel('Wavelength (micron)')
+            # plt.ylabel('Sky counts ADU/pixel')
+            # plt.subplot(324)
+            # plt.plot(self.ldo_hr, self.sky_e, color='r', label='Sky spectrum')
+            # plt.xlim(self.ldo_hr[0], self.ldo_hr[-1])
+            # plt.xlabel('Wavelength (micron)')
+            # plt.ylabel('Sky counts ADU/pixel')
+            plt.savefig(args[0] + '_photo.png')
 
     def doSpectroscopy(self):
         """Spectroscopy initialisations"""
@@ -237,7 +270,7 @@ class EmirGui:
                 # idx_res_ele = [np.arange(idx_sn - num_pix/2, idx_sn + num_pix/2, 1)]
                 # ston_inresele = ston[idx_res_ele] -- this step is the problem
                 # ston_resele = np.sum(ston_inresele)
-                # import pdb; pdb.set_trace()
+
                 ston_resele = np.max(ston)*self.res_ele/self.dpx
                 self.printXML(self.texp, [np.max(src_cnts)],
                               [np.median(sky_cnts[np.nonzero(sky_cnts)])],
@@ -509,6 +542,7 @@ class EmirGui:
         satur = np.zeros_like(texp)
         # Added by LRP from MBC's ETC
         signal_obj = np.zeros_like(texp)
+        signal_vega = np.zeros_like(texp)
         signal_sky = np.zeros_like(texp)
 
         #    1.- Scale object & sky with Vega
@@ -532,9 +566,16 @@ class EmirGui:
                 *params['area']*float(self.ldo_hr[1] - self.ldo_hr[0])
 
         #######################################################################
-        ns = (10**(-1*self.mag_sky/2.5))*\
-            mod.vega(self.sky_e, self.vega, trans_to_scale)\
-            *params['area']*float(self.ldo_hr[1]-self.ldo_hr[0])
+        # Vega:
+        nv = (10**(-1*0.0/2.5))\
+            *mod.vega(self.vega, self.vega, trans_to_scale)\
+            *params['area']*float(self.ldo_hr[1] - self.ldo_hr[0])
+
+        # Sky:
+        sky_e_vega = mod.vega(self.sky_e, self.vega, trans_to_scale)
+        ns = (10**(-1*self.mag_sky/2.5))\
+            *sky_e_vega\
+            *params['area']*float(self.ldo_hr[1] - self.ldo_hr[0])
 
         if ff['template'] == 'Emission line':
             no = no + self.obj*params['area']*float(self.ldo_hr[1] -
@@ -544,9 +585,17 @@ class EmirGui:
         #  The filter appears here and in step 1 because there is used
         #  to calculate the flux under it in order to normalize the
         #  spectra with Vega. Here is used to calculate total fluxes.
+        spec_obj = no*self.filt_hr*self.sky_t
+        spec_sky = ns*self.filt_hr
+        # spec_sky_raw = ns_raw*self.filt_hr
+        spec_vega = nv*self.filt_hr*self.sky_t
+        # print('Vega electrons in band: {}'.format(np.sum(spec_vega)/params['gain']))
+        # print('Sky electrons in band: {}'.format(np.sum(spec_sky)/params['gain']))
+        # print('Sky electrons in band (without scaling to vega): {}'.format(np.sum(spec_sky_raw)/params['gain']))
 
-        fl_obj = texp*(no*self.filt_hr*self.sky_t).sum()
-        fl_sky = texp*(ns*self.filt_hr).sum()*params['scale']**2
+        fl_obj = texp*spec_obj.sum()
+        fl_vega = texp*spec_vega.sum()
+        fl_sky = texp*spec_sky.sum()*params['scale']**2
 
         # In case of point-like source, we need to estimate the aperture
         # to properly account for the effect of the RON and sky.
@@ -564,12 +613,13 @@ class EmirGui:
 
             # From Peter: a good guesstimate of the aperture is 1.2*seeing
 
-            ind = np.where(im_r <= 0.5*1.2*self.seeing / params['scale'])
+            ind = np.where(im_r <= 1.2*self.seeing / params['scale'])
 
             #    The actual STON calculation
 
             for i in range(len(texp)):
                 im_obj = mod.getspread(fl_obj[i], self.seeing, 1) + fl_sky[i]
+                im_vega = mod.getspread(fl_vega[i], self.seeing, 1) + fl_sky[i]
                 im_sky = np.zeros_like(im_obj) + fl_sky[i]
 
                 if nsky == 0:
@@ -589,9 +639,12 @@ class EmirGui:
                 # MBC added 2016-11-28
                 # total counts from source and sky in aperture
                 signal_obj[i] = (im_obj - im_sky)[ind].sum() / params['gain']
+                signal_vega[i] = (im_vega - im_sky)[ind].sum() / params['gain']
                 signal_sky[i] = im_sky[ind].sum() / params['gain']
-                # print('Signal_obj[i] {}'.format(signal_obj[i]))
+                # print('Signal_Vega[i] {}'.format(signal_vega[i]))
                 # print('Signal_sky[i] {}'.format(signal_sky[i]))
+                ston[i] = ston[i]/mod.reality_factor(self.filtname)
+                # import pdb; pdb.set_trace()
 
         elif ff['source_type'] == 'Extended':
             # For an extended sources calculate the flux per pixel
@@ -615,7 +668,7 @@ class EmirGui:
                 signal_obj[i] = (im_obj - im_sky) / params['gain']
                 signal_sky[i] = im_sky / params['gain']
 
-        return ston, signal_obj, signal_sky, satur, params
+        return ston, signal_obj, signal_sky, satur, params, spec_obj, spec_sky, sky_e_vega
 
     def buildObj(self):
         """Build the SED from the input parameters"""
@@ -763,8 +816,8 @@ class EmirGui:
         if ff['operation']=='Spectroscopy':
             ET.SubElement(output, "text").text = "Wavelength coverage: {0:.2f} - {1:.2f} &mu;".format(self.ldo_px[0],self.ldo_px[-1])
             ET.SubElement(output, "text").text = "Dispersion {0:.2f} &Aring;/pix".format(self.dpx*1e4)
-            # ET.SubElement(output, "text").text = "Resolution element {0:.2f} &Aring;".format(self.cenwl*1e4/self.specres) 
-            ET.SubElement(output, "text").text = "Resolution element {0:.2f} &Aring;".format(self.res_ele*1e4) 
+            # ET.SubElement(output, "text").text = "Resolution element {0:.2f} &Aring;".format(self.cenwl*1e4/self.specres)
+            ET.SubElement(output, "text").text = "Resolution element {0:.2f} &Aring;".format(self.res_ele*1e4)
             ET.SubElement(output, "text").text = "In-slit fraction {0:.4f} ".format(self.slitloss)
             # Diagnostics:
             ET.SubElement(output, "text").text = "Nominal Spectral resolution {0:.4f} ".format(self.specres)
@@ -776,16 +829,17 @@ class EmirGui:
             if ff['template'] == 'Emission line':
                 snrfac = max(1, np.sqrt(self.lwidth[0]/self.dpx))
                 ET.SubElement(output, "text").text = "Effective gain = {0:.2f} ".format(params['gain']*self.nobj)
-                ET.SubElement(output, "text").text = "Maximum counts from object {0:.1f}, median from sky: {1:.1f}".format(signal_obj[0],signal_sky[0])
+                ET.SubElement(output, "text").text = "Maximum counts from object {0:.1f}, median from sky: {1:.1f}".format(signal_obj[0], signal_sky[0])
                 ET.SubElement(output, "text").text = "Maximum S/N per FWHM = {0:.1f}".format(ston[0]*snrfac)
             else:
                 ET.SubElement(output, "text").text = "Effective gain = {0:.2f} ".format(params['gain']*self.nobj)
-                ET.SubElement(output, "text").text = "Median counts per pixel: from object = {0:.1f}, from sky = {1:.1f}".format(signal_obj[0],signal_sky[0])
+                ET.SubElement(output, "text").text = "Counts per aperture: from object = {0:.1f}, from sky = {1:.1f}".format(signal_obj[0], signal_sky[0])
                 if ff['operation']=='Spectroscopy':
                     snrfac = max(1, np.sqrt(self.slitwidth/params['scale']))
+                    # ET.SubElement(output, "text").text = "Median S/N per pixel = {0:.1f}".format(ston[0])
                     ET.SubElement(output, "text").text = "Median S/N per res elem = {0:.1f}".format(ston[0]*snrfac)
                 else:
-                    ET.SubElement(output, "text").text = "Median S/N per pixel = {0:.1f}".format(ston[0])
+                    ET.SubElement(output, "text").text = "S/N per {0}*seeing aperture = {1:.1f}".format(1.2, ston[0])
 
             if satur:
                 ET.SubElement(output, "warning").text = "for time {0:.1f} s some pixels are saturated".format(texp[0]*self.nobj)

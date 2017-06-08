@@ -71,7 +71,7 @@ import matplotlib.pylab as plt
 description = ">> Exposure Time Calculator for EMIR. Contact Lee Patrick"
 usage = "%prog [options]"
 
-version = '2.0.5'
+version = '2.0.6'
 
 if len(sys.argv) == 1:
     print(help)
@@ -120,11 +120,6 @@ class EmirGui:
 
         self.vega = SpecCurve(config_files['vega']).interpolate(self.ldo_hr)
 
-        # Convert magnidutes into Vega system (if appropriate)
-        if ff['system'] == 'AB':
-            conv_ab = mod.mag_convert(ff['photo_filter'])
-            # conv_ab = 0.1
-            ff['magnitude'] = float(ff['magnitude']) - conv_ab
 
         # Functions for options:
         if ff['operation'] == 'Photometry':
@@ -135,6 +130,11 @@ class EmirGui:
     def doPhotometry(self):
         """Photometry initialisations"""
         self.mode_oper = 'ph'
+        # Convert magnidutes into Vega system (if appropriate)
+        if ff['system'] == 'AB':
+            conv_ab = mod.mag_convert(ff['photo_filter'])
+            # conv_ab = 0.1
+            ff['magnitude'] = float(ff['magnitude']) - conv_ab
 
         # Obtaining configuration parameters from GUI
         self.mag = float(ff['magnitude'])
@@ -219,6 +219,12 @@ class EmirGui:
     def doSpectroscopy(self):
         """Spectroscopy initialisations"""
         self.mode_oper = 'sp'
+        # Convert magnidutes into Vega system (if appropriate)
+        self.grismname = ff['spec_grism']
+        if ff['system'] == 'AB':
+            conv_ab = mod.mag_convert(self.grismname)
+            ff['magnitude'] = float(ff['magnitude']) - conv_ab
+        # import pdb; pdb.set_trace()
 
         # Obtaining configuration parameters from GUI
         self.mag = float(ff['magnitude'])
@@ -228,7 +234,6 @@ class EmirGui:
         self.slitloss = mod.slitpercent(self.seeing, self.slitwidth)
 
         self.sky_t, self.sky_e = mod.interpolatesky(self.airmass, self.ldo_hr)
-        self.grismname = ff['spec_grism']
         self.buildObj()
 
         #    We have to break the texp into its bits

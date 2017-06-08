@@ -231,13 +231,14 @@ def mag_convert(filt):
     conv_ab = {
         # Broad band filters:
         'Y': 0.621, 'J': 0.950, 'H': 1.390, 'Ks': 1.873,
-        # Spectroscopic filters:
-        "YJ": 0., "HK": 0.0, "K": 1.873,
         # Narrow band filters:
         "FeII": 1.404, "FeII_cont": 1.482, "BrG": 1.883, "BrG_cont": 1.845,
         "H2(1-0)": 1.842, "H2(2-1)": 1.941,
         # Medium band filters:
-        "F123M": 0.872}
+        "F123M": 0.872,
+        # Spectroscopy:
+        # Low-res grisms use 'red' filter as this is what is requred as input
+        'K': 1.873, 'YJ': 0.950, 'HK': 1.873}
     return conv_ab[filt]
 
 

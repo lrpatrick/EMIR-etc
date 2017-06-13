@@ -40,10 +40,9 @@ def checkforsaturation(data):
 
 def convolres(ldo, fl, res_el):
     """
-    Convolve the given spectra at config resolution.
+    Convolve the inpuut spectrum to the desired resolution.
     The resolution element is assumed to be the FWHM
     """
-    # params = get_params()
     # Sigma in pixels, res el taken to be FWHM
     sigma = (res_el/(ldo[1] - ldo[0]))/2.354
     x = np.arange(sigma*10) - sigma*5  # Vector large enough, centered
@@ -242,18 +241,37 @@ def mag_convert(filt):
     return conv_ab[filt]
 
 
+# def reality_factor(filt):
+#     """Scale the final S/N with an empirically defined reality factor"""
+#     reality = {
+#         # Broad band filters:
+#         'Y': 1.0, 'J': 1.0, 'H': 1.0, 'Ks': 1.75,
+#         # Spectroscopic filters:
+#         "YJ": 1.0, "HK": 1.0, "K": 1.0,
+#         # Narrow band filters:
+#         "FeII": 1.0, "FeII_cont": 1.0, "BrG": 1.0, "BrG_cont": 1.0,
+#         "H2(1-0)": 1.0, "H2(2-1)": 1.0,
+#         # Medium band filters:
+#         "F123M": 1.0}
+#     return reality[filt]
+
+
 def reality_factor(filt):
-    """Scale the final S/N with an empirically defined reality factor"""
+    """
+    Scale the final S/N with an empirically defined reality factor
+    Better, scale the meas. counts with an empirically defined reality factor.
+    FGL 13jun
+    """
     reality = {
         # Broad band filters:
-        'Y': 1.0, 'J': 1.0, 'H': 1.0, 'Ks': 2.0,
+        'Y': 0.21, 'J': 0.5, 'H': 0.9, 'Ks': 1.8,
         # Spectroscopic filters:
         "YJ": 1.0, "HK": 1.0, "K": 1.0,
         # Narrow band filters:
-        "FeII": 1.0, "FeII_cont": 1.0, "BrG": 1.0, "BrG_cont": 1.0,
-        "H2(1-0)": 1.0, "H2(2-1)": 1.0,
+        "FeII": 0.9, "FeII_cont": 0.9, "BrG": 1.8, "BrG_cont": 1.8,
+        "H2(1-0)": 1.8, "H2(2-1)": 1.8,
         # Medium band filters:
-        "F123M": 1.0}
+        "F123M": 0.5}
     return reality[filt]
 
 

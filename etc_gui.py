@@ -71,7 +71,7 @@ import matplotlib.pylab as plt
 description = ">> Exposure Time Calculator for EMIR. Contact Lee Patrick"
 usage = "%prog [options]"
 
-version = '2.0.6'
+version = '2.0.7'
 
 if len(sys.argv) == 1:
     print(help)
@@ -104,7 +104,7 @@ class EmirGui:
         self.qe_hr = qe.interpolate(self.ldo_hr)
         self.optics_hr = optics.interpolate(self.ldo_hr)
         self.tel_hr = tel.interpolate(self.ldo_hr)
-        self.trans = self.qe_hr*self.optics_hr*self.tel_hr
+        self.tel_trans = self.qe_hr*self.optics_hr*self.tel_hr
         # End addition
 
         try:
@@ -119,7 +119,6 @@ class EmirGui:
         # Vega spectrum for normalizations
 
         self.vega = SpecCurve(config_files['vega']).interpolate(self.ldo_hr)
-
 
         # Functions for options:
         if ff['operation'] == 'Photometry':
@@ -170,7 +169,9 @@ class EmirGui:
 
         # Calling the function that calculates the STON
         ston, signal_obj, signal_sky, saturated,\
-            params, fl_obj, fl_sky, sky_e = self.getPhotSton(self.texp, self.nobj, self.nsky)
+            params, fl_obj, fl_sky = self.getPhotSton(self.texp,
+                                                      self.nobj,
+                                                      self.nsky)
         if self.timerange == 'Range':
             # self.printResults(self.texp,ston,saturated)
             self.printXML(self.texp, signal_obj, signal_sky,
@@ -231,7 +232,7 @@ class EmirGui:
         self.seeing = float(ff['seeing'])
         self.airmass = float(ff['airmass'])
         self.slitwidth = float(ff['spec_slit_width'])
-        self.slitloss = mod.slitpercent(self.seeing, self.slitwidth)
+        self.sloss = mod.slitpercent(self.seeing, self.slitwidth)
 
         self.sky_t, self.sky_e = mod.interpolatesky(self.airmass, self.ldo_hr)
         self.buildObj()
@@ -257,7 +258,7 @@ class EmirGui:
         self.specres, self.grism, self.filt = con.get_grism(self.grismname)
         self.filt_hr = self.filt.interpolate(self.ldo_hr)
         self.grism_hr = self.grism.interpolate(self.ldo_hr)
-        self.dispersive = self.filt_hr*self.grism_hr
+        self.disp_trans = self.filt_hr*self.grism_hr
         # Addition from MCB's ETC by LRP
         self.efftotal_hr = self.tel_hr*self.optics_hr*self.filt_hr*\
             self.grism_hr*self.qe_hr
@@ -384,25 +385,39 @@ class EmirGui:
         plt.savefig(args[0]+'_spec.png')
 
     def getSpecSton(self, texp=1, nobj=1, nsky=1):
-        """For Spectroscopy Get SignaltoNoise (Ston)"""
+        """
+        For Spectroscopy Get SignaltoNoise (Ston):
+        1.- Calculate the wavelengths visible in the detector
+
+        2.- Scale object & sky with Vega. Note: the per angstrom dependence
+        of the SED is removed later, when the ldo per pixel is calculated
+
+        3.- Convolve the object and sky SEDs with the proper resolution
+        Delta(lambda) is evaluated at the central wavelength
+        In case of an emission line, there is no need to re-normalize
+
+        4.- Interpolate SEDs over the observed wavelengths
+
+        5.- Estimate the Signal to Noise (STON)
+        """
         params = con.get_params()
 
-        # The skymagnitude works because the catchall is Ks, and
-        # the other grisms have the same name as their respective filters
+        # 1. Calculate visible wavelengths
         self.mag_sky = con.get_skymag(self.grismname)
-
-        # 1.- Calculate the wavelengths visible in the detector
-        self.cenwl = (self.ldo_hr*self.dispersive).sum()/(self.dispersive).sum()
+        self.cenwl = (self.ldo_hr*self.disp_trans).sum()/(self.disp_trans).sum()
         self.dpx = (self.cenwl/self.specres)/3.
         self.res_ele = self.dpx*(self.slitwidth/(params['scale']))
         self.ldo_px = (np.arange(2048) - 1024)*self.dpx + self.cenwl
-
-        # 2.- Scale object & sky with Vega. Note: the per angstrom dependence
-        # of the SED is removed later, when the ldo per pixel is calculated
-
-        # In case of an emission line, there is no need to re-normalize
-
+        # Split up low-res grisms if appropriate
+        if self.grismname == 'YJ' or self.grismname == 'HK':
+            self.gname_b, self.gname_r = self.grismname[0], self.grismname[1]
+            # Split spectra into two parts depending on the grism:
+            split = {'YJ': 1.1500, 'HK': 1.9000}
+            # Filters:
+            filt_b = self.filt_hr*(self.ldo_hr < split[self.grismname])
+            filt_r = self.filt_hr*(self.ldo_hr >= split[self.grismname])
         # CGF 02/12/16
+        # Object
         if ff['template'] == 'Emission line':
             no = self.obj*params['area']
         elif (ff['template'] == 'Model file') & \
@@ -410,76 +425,55 @@ class EmirGui:
             no = self.obj*params['area']
         else:
             if self.grismname == 'YJ' or self.grismname == 'HK':
-                self.gname_b, self.gname_r = self.grismname[0], self.grismname[1]
-                # Split spectra into two parts depending on the grism:
-                split = {'YJ': 1.1500,
-                         'HK': 1.9000}
-                # Filters:
-                filt_b = self.filt_hr * (self.ldo_hr < split[self.grismname])
-                filt_r = self.filt_hr * (self.ldo_hr >= split[self.grismname])
+                # 2. Scale object with Vega
                 no = (10**(-1*self.mag/2.5))*\
                     mod.vega(self.obj, self.vega, filt_r)*params['area']
             else:
+                # 2. Scale object and sky with Vega
                 no = (10**(-1*self.mag/2.5))*\
                     mod.vega(self.obj, self.vega, self.filt_hr)*params['area']
-        # else:
-        #     no = (10**(-1*self.mag/2.5))*\
-        #         mod.vega(self.obj, self.vega, self.filt_hr)*params['area']
 
-        # 3.- Convolve the SEDs with the proper resolution
-        #     Delta(lambda) is evaluated at the central wavelength
+        # 3. Convolve with input resolution (object)
+        # Object spectrum scaled by the configuration and transmission
+        sp_obj_config = no*(texp*self.sloss)*\
+                           (self.disp_trans*self.tel_trans*self.sky_t)
+        sp_obj_con = mod.convolres(self.ldo_hr, sp_obj_config, self.res_ele)
 
-        con_obj = mod.convolres(self.ldo_hr,
-                                texp*self.slitloss*(no*self.dispersive*
-                                                    self.trans*self.sky_t),
-                                self.res_ele)
-        # Added by LRP from FGL's code:
-        # Get this working for the HK grism then we can tune it up and add the
-        # YJ girms
+        # Sky
         if self.grismname == 'YJ' or self.grismname == 'HK':
-            # Split spectra into two parts depending on the grism:
-
-            self.gname_b, self.gname_r = self.grismname[0], self.grismname[1]
-            split = {'YJ': 1.1500,
-                     'HK': 1.9000}
-            # Filters:
-            filt_b = self.filt_hr * (self.ldo_hr < split[self.grismname])
-            filt_r = self.filt_hr * (self.ldo_hr >= split[self.grismname])
-
+            # Sky
             ns_b = 10**(-con.get_skymag(self.gname_b)/2.5)*\
                 mod.vega(self.sky_e, self.vega, filt_b)*params['area']
             ns_r = 10**(-con.get_skymag(self.gname_r)/2.5)*\
                 mod.vega(self.sky_e, self.vega, filt_r)*params['area']
 
-            con_sky_b = mod.convolres(self.ldo_hr,
-                                      texp*(ns_b*self.dispersive*self.trans),
-                                      self.res_ele)
-            con_sky_r = mod.convolres(self.ldo_hr,
-                                      texp*(ns_r*self.dispersive*self.trans),
-                                      self.res_ele)
-            con_sky = (con_sky_b + con_sky_r) / 2.
+            # 3. Convolve with input resolution (sky)
+            sp_sky_config_b = ns_b*texp*(self.disp_trans*self.tel_trans)
+            sp_sky_con_b = mod.convolres(self.ldo_hr, sp_sky_config_b,
+                                         self.res_ele)
 
-            sp_sky = self.dpx*mod.spec_int(self.ldo_hr,
-                                           con_sky*params['scale']**2,
-                                           self.ldo_px)
+            sp_sky_config_r = ns_r*texp*(self.disp_trans*self.tel_trans)
+            sp_sky_con_r = mod.convolres(self.ldo_hr, sp_sky_config_r,
+                                         self.res_ele)
+            sp_sky_con = (sp_sky_con_b + sp_sky_con_r) / 2.
         else:
-            # Sky
+            # 2. Scale sky with Vega
             ns = (10**(-1*self.mag_sky/2.5))*\
                 mod.vega(self.sky_e, self.vega, self.filt_hr)*params['area']
 
-            con_sky = mod.convolres(self.ldo_hr,
-                                    texp*(ns*self.dispersive*self.trans),
-                                    self.res_ele)
+            # 3. Convolve with input resolution (sky)
+            sp_sky_config = ns*texp*(self.disp_trans*self.tel_trans)
+            sp_sky_con = mod.convolres(self.ldo_hr, sp_sky_config,
+                                       self.res_ele)
 
-            #    4.- Interpolate SEDs over the observed wavelengths
-            #    and estimate the Signal to Noise (STON)
-
-            sp_sky = self.dpx*mod.spec_int(self.ldo_hr,
-                                           con_sky*params['scale']**2,
-                                           self.ldo_px)
+        # 4. Interpolate over observed wavelengths (sky)
+        sp_sky = self.dpx*mod.spec_int(self.ldo_hr,
+                                       sp_sky_con*params['scale']**2,
+                                       self.ldo_px)
 
         if ff['source_type'] == 'Point':
-            sp_obj = self.dpx*mod.spec_int(self.ldo_hr, con_obj, self.ldo_px)
+            # 4. Interpolate over observed wavelengths (object)
+            sp_obj = self.dpx*mod.spec_int(self.ldo_hr, sp_obj_con, self.ldo_px)
             im_spec = np.zeros((len(sp_obj), 100))
             im_sky = np.zeros((len(sp_obj), 100))
             total_noise = np.zeros((len(sp_obj), 100))
@@ -504,103 +498,84 @@ class EmirGui:
             # Receta de Peter
             ind = np.where(r <= 1.2*self.seeing/params['scale'])[0]
 
-            # S/N calculation signal-to-noise
+            # 5. S/N calculation signal-to-noise
             ston_sp = (im_spec - im_sky)[:, ind].sum(1)/\
                 np.sqrt((total_noise[:, ind]**2).sum(1))
             satur = mod.checkforsaturation(im_spec[:, ind])
+            # Calculate original spectrum for display
+            con_0 = mod.convolres(self.ldo_hr, self.sloss*texp*no, self.dpx)
+            sp_0 = mod.spec_int(self.ldo_hr, con_0, self.ldo_px)*self.dpx
 
         elif ff['source_type'] == 'Extended':
+            # 4. Interpolate over observed wavelengths (object)
             sp_obj = self.dpx*mod.spec_int(self.ldo_hr,
-                                           con_obj*params['scale']**2,
+                                           sp_obj_con*params['scale']**2,
                                            self.ldo_px)
             im_noise = np.sqrt((mod.getnoise(sp_obj + sp_sky, texp)/
                                 np.sqrt(nobj))**2 +
                                (mod.getnoise(sp_sky, texp)/np.sqrt(nsky))**2)
 
             satur = mod.checkforsaturation(sp_obj + sp_sky)
+            # 5. S/N calculation signal-to-noise
             ston_sp = sp_obj/im_noise
-
-        # Calculate original spectrum for display
-
-        con_0 = mod.convolres(self.ldo_hr, self.slitloss*texp*no, self.dpx)
-        # con_0 = mod.convolres(self.ldo_hr, self.slitloss*texp*no,
-        #                       self.cenwl/self.specres)
-        if ff['source_type'] == 'Point':
-            sp_0 = mod.spec_int(self.ldo_hr, con_0, self.ldo_px)*self.dpx
-
-        elif ff['source_type'] == 'Extended':
+            # Calculate original spectrum for display
+            con_0 = mod.convolres(self.ldo_hr, self.sloss*texp*no, self.dpx)
             sp_0 = self.dpx*mod.spec_int(self.ldo_hr, con_0*params['scale']**2,
                                          self.ldo_px)
-        # Update by LRP from MBC, this function now returns more parameters
-        # MB 2016-09-29 return source counts as well
-        # return ston_sp, sp_0/sp_0.max(), satur
 
         obj_cnts = sp_obj/params['gain']
         sky_cnts = sp_sky/params['gain']
         return ston_sp, obj_cnts, sky_cnts, sp_0/sp_0.max(), satur, params
 
     def getPhotSton(self, texp=1, nobj=1, nsky=1):
-        """For Photometry"""
+        """
+        For Photometry Get SignaltoNoise (Ston):
+        1.- Scale object & sky with Vega
+
+        2.- Calculate total fluxes through passbands.
+
+        3.- Synthethic image generation
+
+        4.- Calcualte Signal-to-noise
+        """
         params = con.get_params()
         self.mag_sky = con.get_skymag(self.filtname)
         ston = np.zeros_like(texp)
         satur = np.zeros_like(texp)
         # Added by LRP from MBC's ETC
         signal_obj = np.zeros_like(texp)
-        signal_vega = np.zeros_like(texp)
         signal_sky = np.zeros_like(texp)
-
+        step = float(self.ldo_hr[1] - self.ldo_hr[0])
         #    1.- Scale object & sky with Vega
-
-        trans_to_scale = self.filt_hr*self.trans
-        # no=(10**(-1*self.mag/2.5))*mod.vega(self.obj,self.vega,trans_to_scale)\
-        #     *params['area']*float(self.ldo_hr[1]-self.ldo_hr[0])
-        #
-        #######################################################################
-        #
         # CGF 02/12/16
-        #
+
         if ff['template'] == 'Emission line':
-            no = self.obj*params['area']*float(self.ldo_hr[1] - self.ldo_hr[0])
+            no = self.obj*params['area']*step
         elif (ff['template'] == 'Model file') & \
                 (self.obj_units != 'normal_photon'):
-            no = self.obj*params['area']*float(self.ldo_hr[1] - self.ldo_hr[0])
+            no = self.obj*params['area']*step
         else:
             no = (10**(-1*self.mag/2.5))\
-                *mod.vega(self.obj, self.vega, trans_to_scale)\
-                *params['area']*float(self.ldo_hr[1] - self.ldo_hr[0])
-
-        #######################################################################
-        # Vega:
-        nv = (10**(-1*0.0/2.5))\
-            *mod.vega(self.vega, self.vega, trans_to_scale)\
-            *params['area']*float(self.ldo_hr[1] - self.ldo_hr[0])
+                *mod.vega(self.obj, self.vega, self.filt_hr)\
+                *params['area']*step
+        # Why is this repeated here?
+        # Is this supposed to be here?
+        # if ff['template'] == 'Emission line':
+        #     no = no + self.obj*params['area']*step
 
         # Sky:
-        sky_e_vega = mod.vega(self.sky_e, self.vega, trans_to_scale)
-        ns = (10**(-1*self.mag_sky/2.5))\
-            *sky_e_vega\
-            *params['area']*float(self.ldo_hr[1] - self.ldo_hr[0])
-
-        if ff['template'] == 'Emission line':
-            no = no + self.obj*params['area']*float(self.ldo_hr[1] -
-                                                    self.ldo_hr[0])
+        sky_e_vega = mod.vega(self.sky_e, self.vega, self.filt_hr)
+        ns = (10**(-1*self.mag_sky/2.5))*sky_e_vega*params['area']*step
 
         #  2.- Calculate total fluxes through passbands.
         #  The filter appears here and in step 1 because there is used
         #  to calculate the flux under it in order to normalize the
         #  spectra with Vega. Here is used to calculate total fluxes.
-        spec_obj = no*self.filt_hr*self.sky_t
-        spec_sky = ns*self.filt_hr
-        # spec_sky_raw = ns_raw*self.filt_hr
-        spec_vega = nv*self.filt_hr*self.sky_t
-        # print('Vega electrons in band: {}'.format(np.sum(spec_vega)/params['gain']))
-        # print('Sky electrons in band: {}'.format(np.sum(spec_sky)/params['gain']))
-        # print('Sky electrons in band (without scaling to vega): {}'.format(np.sum(spec_sky_raw)/params['gain']))
+        sp_obj = no*self.filt_hr*self.tel_trans*self.sky_t
+        sp_sky = ns*self.filt_hr*self.tel_trans
 
-        fl_obj = texp*spec_obj.sum()
-        fl_vega = texp*spec_vega.sum()
-        fl_sky = texp*spec_sky.sum()*params['scale']**2
+        fl_obj = texp*sp_obj.sum()
+        fl_sky = texp*sp_sky.sum()*params['scale']**2
 
         # In case of point-like source, we need to estimate the aperture
         # to properly account for the effect of the RON and sky.
@@ -620,13 +595,17 @@ class EmirGui:
 
             ind = np.where(im_r <= 1.2*self.seeing / params['scale'])
 
-            #    The actual STON calculation
+            # 4.- Calcualte Signal-to-noise
+            # Introduce a reality factor
+            rfact = mod.reality_factor(self.filtname)
 
             for i in range(len(texp)):
                 im_obj = mod.getspread(fl_obj[i], self.seeing, 1) + fl_sky[i]
-                im_vega = mod.getspread(fl_vega[i], self.seeing, 1) + fl_sky[i]
                 im_sky = np.zeros_like(im_obj) + fl_sky[i]
-
+                # Scale by reality factor
+                im_obj = im_obj / rfact
+                im_sky = im_sky / rfact
+                # im_sky is used to fit reality factor
                 if nsky == 0:
                     # For no sky frames is assumed that the reduction
                     # is as good as taking a single sky frame.
@@ -644,11 +623,10 @@ class EmirGui:
                 # MBC added 2016-11-28
                 # total counts from source and sky in aperture
                 signal_obj[i] = (im_obj - im_sky)[ind].sum() / params['gain']
-                signal_vega[i] = (im_vega - im_sky)[ind].sum() / params['gain']
                 signal_sky[i] = im_sky[ind].sum() / params['gain']
                 # print('Signal_Vega[i] {}'.format(signal_vega[i]))
                 # print('Signal_sky[i] {}'.format(signal_sky[i]))
-                ston[i] = ston[i]/mod.reality_factor(self.filtname)
+                # ston[i] = ston[i]/mod.reality_factor(self.filtname)
                 # import pdb; pdb.set_trace()
 
         elif ff['source_type'] == 'Extended':
@@ -657,7 +635,8 @@ class EmirGui:
             for i in range(len(texp)):
                 im_obj = np.ones(1)*(fl_obj[i] + fl_sky[i])
                 im_sky = np.ones(1)*fl_sky[i]
-
+                im_obj = im_obj / rfact
+                im_sky = im_sky / rfact
                 if nsky == 0:
                     # For no sky frames is assumed that the reduction
                     # is as good as taking a single sky frame.
@@ -666,14 +645,14 @@ class EmirGui:
                     sky_noise = mod.getnoise(im_sky, texp[i])/ np.sqrt(nsky)
                 obj_noise = mod.getnoise(im_obj, texp[i])/ np.sqrt(nobj)
                 total_noise = np.sqrt(sky_noise**2 + obj_noise**2)
-                ston[i] = (im_obj-im_sky) / total_noise
+                ston[i] = (im_obj - im_sky) / total_noise
                 satur[i] = mod.checkforsaturation(im_obj)
                 # Added by LRP from MBC's ETC
                 # MBC added 2016-11-28
                 signal_obj[i] = (im_obj - im_sky) / params['gain']
                 signal_sky[i] = im_sky / params['gain']
 
-        return ston, signal_obj, signal_sky, satur, params, spec_obj, spec_sky, sky_e_vega
+        return ston, signal_obj, signal_sky, satur, params, sp_obj, sp_sky
 
     def buildObj(self):
         """Build the SED from the input parameters"""
@@ -818,12 +797,12 @@ class EmirGui:
         ET.SubElement(output, "text").text= "RESULTS:"
 
         tabletext = ""
-        if ff['operation']=='Spectroscopy':
+        if ff['operation'] == 'Spectroscopy':
             ET.SubElement(output, "text").text = "Wavelength coverage: {0:.2f} - {1:.2f} &mu;".format(self.ldo_px[0],self.ldo_px[-1])
             ET.SubElement(output, "text").text = "Dispersion {0:.2f} &Aring;/pix".format(self.dpx*1e4)
             # ET.SubElement(output, "text").text = "Resolution element {0:.2f} &Aring;".format(self.cenwl*1e4/self.specres)
             ET.SubElement(output, "text").text = "Resolution element {0:.2f} &Aring;".format(self.res_ele*1e4)
-            ET.SubElement(output, "text").text = "In-slit fraction {0:.4f} ".format(self.slitloss)
+            ET.SubElement(output, "text").text = "In-slit fraction {0:.4f} ".format(self.sloss)
             # Diagnostics:
             ET.SubElement(output, "text").text = "Nominal Spectral resolution {0:.4f} ".format(self.specres)
             ET.SubElement(output, "text").text = "Achieved Spectral resolution {0:.4f} ".format(self.cenwl/self.res_ele)
@@ -838,20 +817,22 @@ class EmirGui:
                 ET.SubElement(output, "text").text = "Maximum S/N per FWHM = {0:.1f}".format(ston[0]*snrfac)
             else:
                 ET.SubElement(output, "text").text = "Effective gain = {0:.2f} ".format(params['gain']*self.nobj)
-                ET.SubElement(output, "text").text = "Counts per aperture: from object = {0:.1f}, from sky = {1:.1f}".format(signal_obj[0], signal_sky[0])
-                if ff['operation']=='Spectroscopy':
+                if ff['operation'] == 'Spectroscopy':
                     snrfac = max(1, np.sqrt(self.slitwidth/params['scale']))
                     # ET.SubElement(output, "text").text = "Median S/N per pixel = {0:.1f}".format(ston[0])
-                    ET.SubElement(output, "text").text = "Median S/N per res elem = {0:.1f}".format(ston[0]*snrfac)
+                    ET.SubElement(output, "text").text = "Median counts per res. element: from object = {0:.1f}, from sky = {1:.1f}".format(signal_obj[0]*snrfac, signal_sky[0]*snrfac)
+                    ET.SubElement(output, "text").text = "Median S/N per res. element = {0:.1f}".format(ston[0]*snrfac)
                 else:
-                    ET.SubElement(output, "text").text = "S/N per {0}*seeing aperture = {1:.1f}".format(1.2, ston[0])
+                    ET.SubElement(output, "text").text = "Counts per aperture: from object = {0:.1f}, from sky = {1:.1f}".format(signal_obj[0], signal_sky[0])
+                    ET.SubElement(output, "text").text = "S/N per {0:.1f}*seeing aperture = {1:.1f}".format(1.2, ston[0])
 
             if satur:
                 ET.SubElement(output, "warning").text = "for time {0:.1f} s some pixels are saturated".format(texp[0]*self.nobj)
         else:
-            tabletext += "\n\tFor the selected time range, the expected S/N per pixel are:"
-            tabletext += "\n\t    t(s)\t     S/N\tSaturation?"
-            tabletext += "\n\t----------------------"
+            tabletext += '\n\tFor the selected time range, the expected S/N per {0}*seeing aperture are:'.format(1.2)
+            tabletext += '\n\t------------------------------------------------'
+            tabletext += '\n\t    t(s)\tS/N(1.2*seeing)\tSaturation?'
+            tabletext += '\n\t------------------------------------------------'
             if ff['operation'] == 'Photometry':
                 for i in range(0, 99, 10):
                     flags = 'No'

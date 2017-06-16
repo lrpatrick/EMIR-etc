@@ -152,7 +152,7 @@ class EmirGui:
         else:
             tmin = float(temp[0])
             tmax = float(temp[1])
-            self.texp = tmin + (tmax - tmin)*np.arange(100)/99.
+            self.texp = tmin + (tmax - tmin)*np.arange(10)/9.
             self.timerange = 'Range'
 
         # Number of frames
@@ -172,20 +172,25 @@ class EmirGui:
             params, fl_obj, fl_sky = self.getPhotSton(self.texp,
                                                       self.nobj,
                                                       self.nsky)
+
         if self.timerange == 'Range':
             # self.printResults(self.texp,ston,saturated)
-            self.printXML(self.texp, signal_obj, signal_sky,
+            self.printXML(signal_obj, signal_sky,
                           ston, saturated, **params)
-            plt.plot(self.texp*self.nobj, ston)  # Update by LRP 28-11-2016
+            lineObjects = plt.plot(self.texp*self.nobj, ston)
+            plt.legend(iter(lineObjects),
+                       ('1.2*seeing', '2.0*seeing', 'Per pixel'),
+                       loc=2)
             plt.xlabel('Exposure time (seconds)')
             if ff['source_type'] == 'Point':
                 plt.ylabel('S/N')
             if ff['source_type'] == 'Extended':
                 plt.ylabel('S/N per pixel')
+            # import pdb; pdb.set_trace()
 
             plt.savefig(args[0] + '_photo.png')
         else:
-            self.printXML(self.texp, signal_obj, signal_sky,
+            self.printXML(signal_obj, signal_sky,
                           ston, saturated, **params)
             # TODO: Create some meaniningful graphic output!
             # Create some figures:
@@ -225,7 +230,6 @@ class EmirGui:
         if ff['system'] == 'AB':
             conv_ab = mod.mag_convert(self.grismname)
             ff['magnitude'] = float(ff['magnitude']) - conv_ab
-        # import pdb; pdb.set_trace()
 
         # Obtaining configuration parameters from GUI
         self.mag = float(ff['magnitude'])
@@ -277,15 +281,14 @@ class EmirGui:
                 # ston_inresele = ston[idx_res_ele] -- this step is the problem
                 # ston_resele = np.sum(ston_inresele)
 
-                ston_resele = np.max(ston)*self.res_ele/self.dpx
-                self.printXML(self.texp, [np.max(src_cnts)],
+                # ston_resele = np.max(ston)*self.res_ele/self.dpx
+                self.printXML([np.max(src_cnts)],
                               [np.median(sky_cnts[np.nonzero(sky_cnts)])],
                               [np.max(ston)],
                               saturated, **params)
             else:
-                ston_resele = np.median(ston[np.nonzero(ston)])*self.res_ele/self.dpx
-                self.printXML(self.texp,
-                              [np.median(src_cnts[np.nonzero(src_cnts)])],
+                # ston_resele = np.median(ston[np.nonzero(ston)])*self.res_ele/self.dpx
+                self.printXML([np.median(src_cnts[np.nonzero(src_cnts)])],
                               [np.median(sky_cnts[np.nonzero(sky_cnts)])],
                               [np.median(ston[np.nonzero(ston)])],
                               saturated, **params)
@@ -361,12 +364,12 @@ class EmirGui:
                 saturated[i] = satur
                 src_med_cnts[i] = np.median(src_cnts[np.nonzero(src_cnts)])
                 sky_med_cnts[i] = np.median(sky_cnts[np.nonzero(sky_cnts)])
-                self.printXML(self.texp, src_med_cnts, sky_med_cnts,
-                              ston, saturated, **params)
-                # self.printXML(self.texp,src_cnts,sky_cnts,ston,saturated,params)
+            self.printXML(src_med_cnts, sky_med_cnts,
+                          ston, saturated, **params)
+            # self.printXML(src_cnts,sky_cnts,ston,saturated,params)
 
-            temp, src_cnts, sky_cnts, sp, temp2, params\
-                = self.getSpecSton(self.texp[i], self.nobj, self.nsky)
+            # temp, src_cnts, sky_cnts, sp, temp2, params\
+            #    = self.getSpecSton(self.texp[i], self.nobj, self.nsky)
             # Additional figure for an inputed range of exposure times
             plt.figure(1)
             plt.subplot(211)
@@ -408,7 +411,13 @@ class EmirGui:
         self.dpx = (self.cenwl/self.specres)/3.
         self.res_ele = self.dpx*(self.slitwidth/(params['scale']))
         self.ldo_px = (np.arange(2048) - 1024)*self.dpx + self.cenwl
-        # Split up low-res grisms if appropriate
+
+        # CGF 02/12/16
+        # if ff['template'] == 'Emission line':
+        #    no = self.obj*params['area']
+        # elif (ff['template'] == 'Model file') & \
+        #        (self.obj_units != 'normal_photon'):
+        no = self.obj*params['area']
         if self.grismname == 'YJ' or self.grismname == 'HK':
             self.gname_b, self.gname_r = self.grismname[0], self.grismname[1]
             # Split spectra into two parts depending on the grism:
@@ -416,31 +425,12 @@ class EmirGui:
             # Filters:
             filt_b = self.filt_hr*(self.ldo_hr < split[self.grismname])
             filt_r = self.filt_hr*(self.ldo_hr >= split[self.grismname])
-        # CGF 02/12/16
-        # Object
-        if ff['template'] == 'Emission line':
-            no = self.obj*params['area']
-        elif (ff['template'] == 'Model file') & \
-                (self.obj_units != 'normal_photon'):
-            no = self.obj*params['area']
-        else:
-            if self.grismname == 'YJ' or self.grismname == 'HK':
-                # 2. Scale object with Vega
+
+            # 2. Scale object and sky with Vega
+            # Object
+            if (ff['template'] == 'Black body') | (ff['template'] == 'Model library'):
                 no = (10**(-1*self.mag/2.5))*\
                     mod.vega(self.obj, self.vega, filt_r)*params['area']
-            else:
-                # 2. Scale object and sky with Vega
-                no = (10**(-1*self.mag/2.5))*\
-                    mod.vega(self.obj, self.vega, self.filt_hr)*params['area']
-
-        # 3. Convolve with input resolution (object)
-        # Object spectrum scaled by the configuration and transmission
-        sp_obj_config = no*(texp*self.sloss)*\
-                           (self.disp_trans*self.tel_trans*self.sky_t)
-        sp_obj_con = mod.convolres(self.ldo_hr, sp_obj_config, self.res_ele)
-
-        # Sky
-        if self.grismname == 'YJ' or self.grismname == 'HK':
             # Sky
             ns_b = 10**(-con.get_skymag(self.gname_b)/2.5)*\
                 mod.vega(self.sky_e, self.vega, filt_b)*params['area']
@@ -456,8 +446,12 @@ class EmirGui:
             sp_sky_con_r = mod.convolres(self.ldo_hr, sp_sky_config_r,
                                          self.res_ele)
             sp_sky_con = (sp_sky_con_b + sp_sky_con_r) / 2.
+
         else:
-            # 2. Scale sky with Vega
+            # 2. Scale object and sky with Vega
+            if (ff['template'] == 'Black body') | (ff['template'] == 'Model library'):
+                no = (10**(-1*self.mag/2.5))*\
+                    mod.vega(self.obj, self.vega, self.filt_hr)*params['area']
             ns = (10**(-1*self.mag_sky/2.5))*\
                 mod.vega(self.sky_e, self.vega, self.filt_hr)*params['area']
 
@@ -470,6 +464,11 @@ class EmirGui:
         sp_sky = self.dpx*mod.spec_int(self.ldo_hr,
                                        sp_sky_con*params['scale']**2,
                                        self.ldo_px)
+        # 3. Convolve with input resolution (object)
+        # Object spectrum scaled by the configuration and transmission
+        sp_obj_config = no*(texp*self.sloss)*\
+                           (self.disp_trans*self.tel_trans*self.sky_t)
+        sp_obj_con = mod.convolres(self.ldo_hr, sp_obj_config, self.res_ele)
 
         if ff['source_type'] == 'Point':
             # 4. Interpolate over observed wavelengths (object)
@@ -496,7 +495,7 @@ class EmirGui:
 
             r = np.abs(np.arange(100) - 50)
             # Receta de Peter
-            ind = np.where(r <= 1.2*self.seeing/params['scale'])[0]
+            ind = np.where(r <= 1.2*self.seeing/2./params['scale'])[0]
 
             # 5. S/N calculation signal-to-noise
             ston_sp = (im_spec - im_sky)[:, ind].sum(1)/\
@@ -540,11 +539,12 @@ class EmirGui:
         """
         params = con.get_params()
         self.mag_sky = con.get_skymag(self.filtname)
-        ston = np.zeros_like(texp)
+        # ston = np.zeros_like(texp)
         satur = np.zeros_like(texp)
         # Added by LRP from MBC's ETC
-        signal_obj = np.zeros_like(texp)
-        signal_sky = np.zeros_like(texp)
+        ston = np.zeros((np.shape(texp)[0], 3))
+        signal_obj = np.zeros((np.shape(texp)[0], 3))
+        signal_sky = np.zeros((np.shape(texp)[0], 3))
         step = float(self.ldo_hr[1] - self.ldo_hr[0])
         #    1.- Scale object & sky with Vega
         # CGF 02/12/16
@@ -560,8 +560,8 @@ class EmirGui:
                 *params['area']*step
         # Why is this repeated here?
         # Is this supposed to be here?
-        # if ff['template'] == 'Emission line':
-        #     no = no + self.obj*params['area']*step
+        #if ff['template'] == 'Emission line':
+        #    no = no + self.obj*params['area']*step
 
         # Sky:
         sky_e_vega = mod.vega(self.sky_e, self.vega, self.filt_hr)
@@ -581,6 +581,7 @@ class EmirGui:
         # to properly account for the effect of the RON and sky.
         # In the case of extended sources, the estimated values are per pixel
 
+        rfact = mod.reality_factor(self.filtname)
         if ff['source_type'] == 'Point':
             # 3.- Synthethic image generation
             # An "image" of radii values from the center is used to see how
@@ -593,19 +594,20 @@ class EmirGui:
 
             # From Peter: a good guesstimate of the aperture is 1.2*seeing
 
-            ind = np.where(im_r <= 1.2*self.seeing / params['scale'])
+            ind = np.where(im_r <= (1.2*self.seeing / 2.) / params['scale'])
+            ind2 = np.where(im_r <= (2.0*self.seeing / 2.) / params['scale'])
 
             # 4.- Calcualte Signal-to-noise
-            # Introduce a reality factor
-            rfact = mod.reality_factor(self.filtname)
+
 
             for i in range(len(texp)):
                 im_obj = mod.getspread(fl_obj[i], self.seeing, 1) + fl_sky[i]
                 im_sky = np.zeros_like(im_obj) + fl_sky[i]
-                # Scale by reality factor
                 im_obj = im_obj / rfact
                 im_sky = im_sky / rfact
-                # im_sky is used to fit reality factor
+                # print (rfact,(im_obj.max()+im_sky.min())/params['gain']\
+                #    /texp[i],im_sky.min()/params['gain']/texp[i])
+
                 if nsky == 0:
                     # For no sky frames is assumed that the reduction
                     # is as good as taking a single sky frame.
@@ -615,19 +617,22 @@ class EmirGui:
 
                 obj_noise = mod.getnoise(im_obj, texp[i]) / np.sqrt(nobj)
                 total_noise = np.sqrt(sky_noise**2 + obj_noise**2)
-                ston[i] = (im_obj - im_sky)[ind].sum()\
+                ston[i][0] = (im_obj - im_sky)[ind].sum()\
                     / np.sqrt((total_noise[ind]**2).sum())
+                ston[i][1] = (im_obj - im_sky)[ind2].sum()\
+                    / np.sqrt((total_noise[ind2]**2).sum())
+                ston[i][2] = (im_obj.max() - im_sky.min())/total_noise.max()
                 satur[i] = mod.checkforsaturation(im_obj)
 
                 # Added by LRP from MBC's ETC
                 # MBC added 2016-11-28
                 # total counts from source and sky in aperture
-                signal_obj[i] = (im_obj - im_sky)[ind].sum() / params['gain']
-                signal_sky[i] = im_sky[ind].sum() / params['gain']
-                # print('Signal_Vega[i] {}'.format(signal_vega[i]))
-                # print('Signal_sky[i] {}'.format(signal_sky[i]))
-                # ston[i] = ston[i]/mod.reality_factor(self.filtname)
-                # import pdb; pdb.set_trace()
+                signal_obj[i][0] = (im_obj - im_sky)[ind].sum() / params['gain']
+                signal_sky[i][0] = im_sky[ind].sum() / params['gain']
+                signal_obj[i][1] = (im_obj - im_sky)[ind2].sum() / params['gain']
+                signal_sky[i][1] = im_sky[ind2].sum() / params['gain']
+                signal_obj[i][2] = im_obj.max()/params['gain']/texp[i]
+                signal_sky[i][2] = im_sky.min()/params['gain']/texp[i]
 
         elif ff['source_type'] == 'Extended':
             # For an extended sources calculate the flux per pixel
@@ -637,6 +642,7 @@ class EmirGui:
                 im_sky = np.ones(1)*fl_sky[i]
                 im_obj = im_obj / rfact
                 im_sky = im_sky / rfact
+
                 if nsky == 0:
                     # For no sky frames is assumed that the reduction
                     # is as good as taking a single sky frame.
@@ -645,13 +651,19 @@ class EmirGui:
                     sky_noise = mod.getnoise(im_sky, texp[i])/ np.sqrt(nsky)
                 obj_noise = mod.getnoise(im_obj, texp[i])/ np.sqrt(nobj)
                 total_noise = np.sqrt(sky_noise**2 + obj_noise**2)
-                ston[i] = (im_obj - im_sky) / total_noise
+                ston[i][0] = (im_obj - im_sky) / total_noise
+                ston[i][1] = (im_obj - im_sky) / total_noise
+                ston[i][2] = (im_obj - im_sky) / total_noise
                 satur[i] = mod.checkforsaturation(im_obj)
                 # Added by LRP from MBC's ETC
                 # MBC added 2016-11-28
-                signal_obj[i] = (im_obj - im_sky) / params['gain']
-                signal_sky[i] = im_sky / params['gain']
-
+                signal_obj[i][0] = (im_obj - im_sky).sum() / params['gain']
+                signal_sky[i][0] = im_sky.sum() / params['gain']
+                signal_obj[i][1] = (im_obj - im_sky).sum() / params['gain']
+                signal_sky[i][1] = im_sky.sum() / params['gain']
+                signal_obj[i][2] = im_obj.max()/params['gain']/texp[i]
+                signal_sky[i][2] = im_sky.min()/params['gain']/texp[i]
+            # import pdb; pdb.set_trace()
         return ston, signal_obj, signal_sky, satur, params, sp_obj, sp_sky
 
     def buildObj(self):
@@ -712,152 +724,201 @@ class EmirGui:
             self.obj_units = 'photon/s/m2/micron'
             # mod.emline outputs in photon/s/m2/micron
 
-    def printXML(self, texp, signal_obj, signal_sky, ston, satur, **params):
+    def printXML(self, signal_obj, signal_sky, ston, satur, **params):
         """
         A function to create the output XML files
         Updated to inlucde more output by LRP 08-12-2016
         Mainly taken from Marc Balcells' version of the ETC
 
-        Would this would be quicker if we just had a few if statements and put
-        output for each case together -- also may cause fewer errors!
+        TODO: this doesn't need texp to be an arugment, we have self.texp
+
+        Would this would be quicker if we just had a few already built xml
+        templates and the code just filled in the appropriate template instead
+        of generating it each time?
         """
-        output = ET.Element("output")
+        # Some redefinitions to make life easier
+        o = ET.Element("output")
+        se = ET.SubElement
 
         if ff['operation'] == 'Photometry':
             fig_name = args[0] + "_photo.png"
         else:
             fig_name = args[0] + "_spec.png"
 
-        ET.SubElement(output, "fig").text = fig_name
+        se(o, "fig").text = fig_name
 
-        ET.SubElement(output, "text").text = "Current ETC Version: {}".format(version)
-        ET.SubElement(output, "text").text = "SOURCE:"
+        se(o, "text").text = "Current ETC Version: {}".format(version)
+        se(o, "text").text = "SOURCE:"
 
         if ff['operation'] == 'Photometry':
-            ET.SubElement(output, "text").text = "{0:s} Source (Vega Mag) = {1:.3f} {2}".\
+            se(o, "text").text = "{0:s} Source (Vega Mag) = {1:.3f} {2}".\
                 format(ff['source_type'], self.mag, self.filtname)
         elif self.grismname == 'YJ' or self.grismname == 'HK':
-            ET.SubElement(output, "text").text = "{0:s} Source (Vega Mag) = {1:.3f} {2}".\
+            se(o, "text").text = "{0:s} Source (Vega Mag) = {1:.3f} {2}".\
                 format(ff['source_type'], self.mag, self.gname_r)
         else:
-            ET.SubElement(output, "text").text = "{0:s} Source (Vega Mag) = {1:.3f} {2}".\
+            se(o, "text").text = "{0:s} Source (Vega Mag) = {1:.3f} {2}".\
                 format(ff['source_type'], self.mag, self.grismname)
 
-        # ET.SubElement(output, "text").text = "{0:s} Source (Vega Mag) = {1:.3f}".\
+        # se(o, "text").text = "{0:s} Source (Vega Mag) = {1:.3f}".\
         #     format(ff['source_type'], self.mag)
         if ff['template'] == 'Model library':
-            ET.SubElement(output, "text").text = "Template: Model library"
-            ET.SubElement(output, "text").text= "Spectral Type: {0:s}".format(ff['model'])
+            se(o, "text").text = "Template: Model library"
+            se(o, "text").text= "Spectral Type: {0:s}".format(ff['model'])
         elif ff['template'] == 'Black body':
-            ET.SubElement(output, "text").text = "Template: Black Body"
-            ET.SubElement(output, "text").text = "Temperature = {0:.1f} K".format(float(ff['body_temp']))
+            se(o, "text").text = "Template: Black Body"
+            se(o, "text").text = "Temperature = {0:.1f} K".format(float(ff['body_temp']))
         elif ff['template'] == 'Emission line':
-            ET.SubElement(output, "text").text = "Template: Emission Line"
-            ET.SubElement(output, "text").text = "Center = {0:s}, FWHM = {1:s}, Total line flux = {2:s}"\
+            se(o, "text").text = "Template: Emission Line"
+            se(o, "text").text = "Center = {0:s}, FWHM = {1:s}, Total line flux = {2:s}"\
                 .format(ff['line_center'], ff['line_fwhm'], ff['line_peakf'])
         elif ff['template'] == 'Model file':
-            ET.SubElement(output, "text").text = "Template: Model file"
-            ET.SubElement(output, "text").text = "Model file = {0:s}".format(ff['model_file'])
+            se(o, "text").text = "Template: Model file"
+            se(o, "text").text = "Model file = {0:s}".format(ff['model_file'])
 
-        ET.SubElement(output, "text").text = "----------------------------------------------------------------"
-        ET.SubElement(output, "text").text = "OBSERVATION:"
-        ET.SubElement(output, "text").text = "Operation: {0:s}".format(ff['operation'])
-        if ff['operation'] == 'Photometry':
-            if self.timerange == 'Range':
-                ET.SubElement(output, "text").text = "Exposure times = {0:8.1f} - {1:8.1f}".format(texp[0], texp[-1])
-            else:
-                ET.SubElement(output, "text").text = "Exposure time(s) = {0:8.1f}".format(texp[0])
-            ET.SubElement(output, "text").text = "Number of exposures: Object {0:d}, Sky {1:d}".format(int(self.nobj), int(self.nsky))
-            ET.SubElement(output, "text").text = "----------------------------------------------------------------"
-            ET.SubElement(output, "text").text = "TELESCOPE AND INSTRUMENT:"
-            ET.SubElement(output, "text").text = "Filter: {0:s} ".format(self.filtname)
+        se(o, "text").text = "----------------------------------------------------------------"
+        se(o, "text").text = "OBSERVATION:"
+        se(o, "text").text = "Operation: {0:s}".format(ff['operation'])
+        if self.timerange == 'Range':
+            se(o, "text").text = "Exposure times = {0:8.1f} - {1:8.1f}".format(self.texp[0], self.texp[-1])
         else:
-            ET.SubElement(output, "text").text = "Exposure time(s) = {0:s}".format(ff['spec_exp_time'])
-            ET.SubElement(output, "text").text = "Number of exposures: Object {0:d}, Sky {1:d}".format(int(self.nobj), int(self.nsky))
-            ET.SubElement(output, "text").text = "----------------------------------------------------------------"
-            ET.SubElement(output, "text").text = "TELESCOPE AND INSTRUMENT:"
-            ET.SubElement(output, "text").text = "Grism: {0:s}".format(self.grismname)
-            ET.SubElement(output, "text").text = "Slit width = {0:.2f} arcsec".format(self.slitwidth)
-        ET.SubElement(output, "text").text = "Telescope collecting area = {0:.1f} m<sup>2</sup>".format(params['area'])
-
-        # ET.SubElement(output, "text").text = "----------------------------------------------------------------"
-        # ET.SubElement(output, "text").text = "Detector: "
-        ET.SubElement(output, "text").text = "Spatial scale = {0:.4f} arcsec/pix ".format(params['scale'])
-        ET.SubElement(output, "text").text = "Readout noise = {0:.1f} e<sup>-</sup> ".format(params['RON'])
-        ET.SubElement(output, "text").text = "Dark current = {0:.2f} e<sup>-</sup>/hr".format(params['DC'])
-        ET.SubElement(output, "text").text = "Well depth = {0:.1f} e<sup>-</sup>".format(params['well'])
-        ET.SubElement(output, "text").text = "Gain = {0:.2f} e<sup>-</sup>/ADU".format(params['gain'])
-        ET.SubElement(output, "text").text = "----------------------------------------------------------------"
-        ET.SubElement(output, "text").text = "OBSERVING CONDITIONS:"
-        ET.SubElement(output, "text").text = "Airmass = {0:.2f}".format(self.airmass)
-        ET.SubElement(output, "text").text = "Seeing = {0:.2f} arcsec FWHM".format(self.seeing)
-        ET.SubElement(output, "text").text = "Sky brightness = {0:.2f} Vega mag / arcsec<sup>2</sup>".format(self.mag_sky)
-        ET.SubElement(output, "text").text = " "
-        ET.SubElement(output, "text").text = "----------------------------------------------------------------"
-        ET.SubElement(output, "text").text= "RESULTS:"
+            se(o, "text").text = "Exposure time(s) = {0:8.1f}".format(self.texp[0])
+        se(o, "text").text = "Number of exposures: Object {0:d}, Sky {1:d}".format(int(self.nobj), int(self.nsky))
+        se(o, "text").text = "----------------------------------------------------------------"
+        se(o, "text").text = "TELESCOPE AND INSTRUMENT:"
+        se(o, "text").text = "Telescope collecting area = {0:.1f} m<sup>2</sup>".format(params['area'])
+        se(o, "text").text = "Spatial scale = {0:.4f} arcsec/pix ".format(params['scale'])
+        se(o, "text").text = "Readout noise = {0:.1f} e<sup>-</sup> ".format(params['RON'])
+        se(o, "text").text = "Dark current = {0:.2f} e<sup>-</sup>/hr".format(params['DC'])
+        se(o, "text").text = "Well depth = {0:.1f} e<sup>-</sup>".format(params['well'])
+        se(o, "text").text = "Gain = {0:.2f} e<sup>-</sup>/ADU".format(params['gain'])
+        se(o, "text").text = "Effective gain = {0:.2f} ".format(params['gain']*self.nobj)
+        if ff['operation'] == 'Photometry':
+            se(o, "text").text = "Filter: {0:s} ".format(self.filtname)
+        else:		# Spectroscopy
+            se(o, "text").text = "Grism: {0:s}".format(self.grismname)
+            se(o, "text").text = "Slit width = {0:.2f} arcsec".format(self.slitwidth)
+            se(o, "text").text = "Wavelength coverage = {0:.2f} - {1:.2f} &mu;".format(self.ldo_px[0],self.ldo_px[-1])
+            se(o, "text").text = "Central wavelength = {0:.4f} ".format(self.cenwl)
+            se(o, "text").text = "Dispersion = {0:.2f} &Aring;/pix".format(self.dpx*1e4)
+            se(o, "text").text = "Resolution element = {0:.2f} &Aring or {1:.2f} px"\
+                .format(self.res_ele*1e4, self.res_ele/self.dpx)
+            se(o, "text").text = "In-slit fraction = {0:.4f} ".format(self.sloss)
+            se(o, "text").text = "Nominal Spectral resolution = {0:.4f}".format(self.specres)
+            se(o, "text").text = "Achieved Spectral resolution = {0:.4f}".format(self.cenwl/self.res_ele)
+        se(o, "text").text = "----------------------------------------------------------------"
+        se(o, "text").text = "OBSERVING CONDITIONS:"
+        se(o, "text").text = "Airmass = {0:.2f}".format(self.airmass)
+        se(o, "text").text = "Seeing = {0:.2f} arcsec FWHM".format(self.seeing)
+        se(o, "text").text = "Sky brightness = {0:.2f} Vega mag/arcsec<sup>2</sup>".format(self.mag_sky)
+        se(o, "text").text = " "
+        se(o, "text").text = "----------------------------------------------------------------"
+        se(o, "text").text = "RESULTS:"
 
         tabletext = ""
-        if ff['operation'] == 'Spectroscopy':
-            ET.SubElement(output, "text").text = "Wavelength coverage: {0:.2f} - {1:.2f} &mu;".format(self.ldo_px[0],self.ldo_px[-1])
-            ET.SubElement(output, "text").text = "Dispersion {0:.2f} &Aring;/pix".format(self.dpx*1e4)
-            # ET.SubElement(output, "text").text = "Resolution element {0:.2f} &Aring;".format(self.cenwl*1e4/self.specres)
-            ET.SubElement(output, "text").text = "Resolution element {0:.2f} &Aring;".format(self.res_ele*1e4)
-            ET.SubElement(output, "text").text = "In-slit fraction {0:.4f} ".format(self.sloss)
-            # Diagnostics:
-            ET.SubElement(output, "text").text = "Nominal Spectral resolution {0:.4f} ".format(self.specres)
-            ET.SubElement(output, "text").text = "Achieved Spectral resolution {0:.4f} ".format(self.cenwl/self.res_ele)
-            # ET.SubElement(output, "text").text = "Central lambda {0:.4f} ".format(self.cenwl)
         if self.timerange != 'Range':
-            ET.SubElement(output, "text").text = "For {0:d} exposure(s) of {1:.1f} s: ".format(int(self.nobj), texp[0])
-
-            if ff['template'] == 'Emission line':
-                snrfac = max(1, np.sqrt(self.lwidth[0]/self.dpx))
-                ET.SubElement(output, "text").text = "Effective gain = {0:.2f} ".format(params['gain']*self.nobj)
-                ET.SubElement(output, "text").text = "Maximum counts from object {0:.1f}, median from sky: {1:.1f}".format(signal_obj[0], signal_sky[0])
-                ET.SubElement(output, "text").text = "Maximum S/N per FWHM = {0:.1f}".format(ston[0]*snrfac)
-            else:
-                ET.SubElement(output, "text").text = "Effective gain = {0:.2f} ".format(params['gain']*self.nobj)
-                if ff['operation'] == 'Spectroscopy':
-                    snrfac = max(1, np.sqrt(self.slitwidth/params['scale']))
-                    # ET.SubElement(output, "text").text = "Median S/N per pixel = {0:.1f}".format(ston[0])
-                    ET.SubElement(output, "text").text = "Median counts per res. element: from object = {0:.1f}, from sky = {1:.1f}".format(signal_obj[0]*snrfac, signal_sky[0]*snrfac)
-                    ET.SubElement(output, "text").text = "Median S/N per res. element = {0:.1f}".format(ston[0]*snrfac)
+            se(o, "text").text = "For {0:d} exposure(s) of {1:.1f} s: ".format(int(self.nobj), self.texp[0])
+            if ff['operation']=='Spectroscopy':
+                if ff['template'] == 'Emission line':
+                    snrfac = max(1, np.sqrt(self.lwidth[0]/self.dpx))
+                    se(o, "text").text = "Maximum counts from object {0:.1f}, median from sky: {1:.1f}"\
+                        .format(signal_obj[0], signal_sky[0])
+                    se(o, "text").text = "Maximum S/N per FWHM = {0:.1f}".format(ston[0]*snrfac)
                 else:
-                    ET.SubElement(output, "text").text = "Counts per aperture: from object = {0:.1f}, from sky = {1:.1f}".format(signal_obj[0], signal_sky[0])
-                    ET.SubElement(output, "text").text = "S/N per {0:.1f}*seeing aperture = {1:.1f}".format(1.2, ston[0])
+                    snrfac = max(1, np.sqrt(self.slitwidth/params['scale']))
+                    se(o, "text").text = "Median counts per res. element: from object = {0:.1f}, from sky = {1:.1f}"\
+                        .format(signal_obj[0]*snrfac, signal_sky[0]*snrfac)
+                    se(o, "text").text = "Median S/N per res. element = {0:.1f}".format(ston[0]*snrfac)
+                    se(o, "text").text = "Median S/N per pixel = {0:.1f}".format(ston[0])
+            else:  # Photometry
+                se(o, "text").text = "DETAILS OF S/N CALCULATIONS:"
+                se(o, "text").text = "Per Pixel:"
+                se(o, "text").text = "Maximum object counts per pixel per second: "\
+                    " = {0:.1f}".format(signal_obj[0][2])
+                se(o, "text").text = "Median sky counts per pixel per second: "\
+                    " = {0:.1f}".format(signal_sky[0][2])
+                
+                se(o, "text").text = "DETAILS OF S/N CALCULATIONS:"
+                ap1, ap2 = 1.2, 2.0
+                se(o, "text").text = "Per Aperture:"
+                se(o, "text").text = "Aperture 1:"
+                se(o, "text").text = "diameter = {0}*seeing = "\
+                    "{1:.2f} arcsecs or {2:.2f} pixels"\
+                    .format(ap1, ap1*self.seeing, ap1*self.seeing / params['scale'])
+                se(o, "text").text = "Total counts in 1.2*seeing aperture: "\
+                    "from object = {0:.1f}, from sky = {1:.1f}"\
+                    .format(signal_obj[0][0], signal_sky[0][0])
+                se(o, "text").text = "Aperture 2:"
+                se(o, "text").text = "diameter = {0}*seeing = "\
+                    "{1:.2f} arcsecs or {2:.2f} pixels"\
+                    .format(ap2, ap2*self.seeing, ap2*self.seeing / params['scale'])
+                se(o, "text").text = "Total counts in 2.0*seeing aperture: "\
+                    "from object = {0:.1f}, from sky = {1:.1f}"\
+                    .format(signal_obj[0][1], signal_sky[0][1])
+                
+                se(o, "text").text = "S/N Estimates:"
+                se(o, "text").text = "Maximum S/N per pixel = {0:.1f}".format(ston[0][2])
+                se(o, "text").text = "Final S/N per 1.2*seeing aperture = {0:.1f}".format(ston[0][0])
+                se(o, "text").text = "Final S/N per 2.0*seeing aperture = {0:.1f}".format(ston[0][1])
 
             if satur:
-                ET.SubElement(output, "warning").text = "for time {0:.1f} s some pixels are saturated".format(texp[0]*self.nobj)
-        else:
-            tabletext += '\n\tFor the selected time range, the expected S/N per {0}*seeing aperture are:'.format(1.2)
-            tabletext += '\n\t------------------------------------------------'
-            tabletext += '\n\t    t(s)\tS/N(1.2*seeing)\tSaturation?'
-            tabletext += '\n\t------------------------------------------------'
-            if ff['operation'] == 'Photometry':
-                for i in range(0, 99, 10):
-                    flags = 'No'
-                    if satur[i]:
-                        flags = 'Yes'
-                    tabletext += '\n\t{0:8.1f}\t{1:8.1f}\t'\
-                        .format(texp[i]*self.nobj, ston[i]) + flags
+                se(o, "warning").text = "for time {0:.1f} s some pixels are saturated".format(self.texp[0])
+
+        else:  # Range of texp
+            if ff['operation']=='Spectroscopy':
+                if ff['template'] == 'Emission line':
+                    tabletext += '\n\tFor the selected time range, the S/N per FWHM are:'
+                else:
+                    tabletext += '\n\tFor the selected time range, the S/N per res. element are:'
+                tabletext += '\n\t-----------------------------------------------------------'
+                tabletext += '\n\t    t(s)\tS/N(res_ele)\tSaturation?'
+                tabletext += '\n\t-----------------------------------------------------------'
+            else:  # Photometry
+                se(o, "text").text = "DETAILS OF S/N CALCULATIONS:"
+                ap1, ap2 = 1.2, 2.0
+                se(o, "text").text = "An example for {0:d} exposure(s) of {1:.1f} s: ".format(int(self.nobj), self.texp[0])
+                se(o, "text").text = "Per Pixel:"
+                se(o, "text").text = "Maximum object counts per pixel per second: "\
+                    " = {0:.1f}".format(signal_obj[0][2])
+                se(o, "text").text = "Median sky counts per pixel per second: "\
+                    " = {0:.1f}".format(signal_sky[0][2])
+                
+
+                se(o, "text").text = "Per Aperture:"
+                se(o, "text").text = "Aperture 1:"
+                se(o, "text").text = "diameter = {0}*seeing = "\
+                    "{1:.2f} arcsecs or {2:.2f} pixels"\
+                    .format(ap1, ap1*self.seeing, ap1*self.seeing / params['scale'])
+                se(o, "text").text = "Total counts in 1.2*seeing aperture: "\
+                    "from object = {0:.1f}, from sky = {1:.1f}"\
+                    .format(signal_obj[0][0], signal_sky[0][0])
+                se(o, "text").text = "Aperture 2:"
+                se(o, "text").text = "diameter = {0}*seeing = "\
+                    "{1:.2f} arcsecs or {2:.2f} pixels"\
+                    .format(ap2, ap2*self.seeing, ap2*self.seeing / params['scale'])
+                se(o, "text").text = "Total counts in 2.0*seeing aperture: "\
+                    "from object = {0:.1f}, from sky = {1:.1f}"\
+                    .format(signal_obj[0][1], signal_sky[0][1])
+
+                tabletext += '\n\tFor the selected time range, the S/N estimates are:'.format(1.2)
+                tabletext += '\n\t------------------------------------------------------------------------'
+                tabletext += '\n\t    t(s)\tS/N(per pixel)\tS/N(1.2*seeing)\tS/N(2.0*seeing)\tSaturation?'
+                tabletext += '\n\t------------------------------------------------------------------------'
+                
+
+            for i in range(0, 10):  # FGL 13jun
                 flags = 'No'
-                if satur[-1]:
+                if satur[i]:
                     flags = 'Yes'
-                tabletext += '\n\t{0:8.1f}\t{1:8.1f}\t'\
-                    .format(texp[-1]*self.nobj, ston[-1]) + flags
-            else:
-                for i in range(0, 9):
-                    flags = 'No'
-                    if satur[i]:
-                        flags = 'Yes'
-                    tabletext += '\n\t{0:8.1f}\t{1:8.1f}\t'\
-                        .format(texp[i]*self.nobj, ston[i]) + flags
+                tabletext += '\n\t{0:8.1f}\t{1:8.1f}\t{2:8.1f}\t{3:8.1f}\t'\
+                    .format(self.texp[i]*self.nobj, ston[i][2], ston[i][0], ston[i][1]) + flags
 
         tabletext += "\n"
-        ET.SubElement(output, "table").text = tabletext
-        emir_guy.indent(output)
-        tree = ET.ElementTree(output)
+        se(o, "table").text = tabletext
+        emir_guy.indent(o)
+        tree = ET.ElementTree(o)
         tree.write(args[0] + "_out.xml")
+
 
 try:
     EmirGui()

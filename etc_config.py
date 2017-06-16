@@ -190,10 +190,11 @@ def get_params():
     # Detector
     # Paco cambio 22/09/16
     # Updated by LRP 12-12-2016 from Marc's version
-    dark_current = 0.25   # e-/s/px
+    dark_current = 0.05   # e-/s/px
     readout_noise = 15.0  # e-/px
-    well_depth = 166981   # e-
     gain = 3.33           # e-/ADU
+    bias = 6000 * gain    # bias level. Meas ~ 6000 adu
+    well_depth = 166981 - bias   # e-
 
     return {'DC': dark_current, 'RON': readout_noise, 'gain': gain,
             'well': well_depth, 'area': collector_area, 'scale': scale}

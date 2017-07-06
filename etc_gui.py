@@ -789,7 +789,7 @@ class EmirGui:
         se(o, "text").text = "Telescope collecting area = {0:.1f} m<sup>2</sup>".format(params['area'])
         se(o, "text").text = "Spatial scale = {0:.4f} arcsec/pix ".format(params['scale'])
         se(o, "text").text = "Readout noise = {0:.1f} e<sup>-</sup> ".format(params['RON'])
-        se(o, "text").text = "Dark current = {0:.2f} e<sup>-</sup>/hr".format(params['DC'])
+        se(o, "text").text = "Dark current = {0:.2f} ADU/hour".format(3600*params['DC']/params['gain'])
         se(o, "text").text = "Well depth = {0:.1f} e<sup>-</sup>".format(params['well'])
         se(o, "text").text = "Gain = {0:.2f} e<sup>-</sup>/ADU".format(params['gain'])
         se(o, "text").text = "Effective gain = {0:.2f} ".format(params['gain']*self.nobj)
@@ -837,7 +837,7 @@ class EmirGui:
                     " = {0:.1f}".format(signal_obj[0][2])
                 se(o, "text").text = "Median sky counts per pixel per second: "\
                     " = {0:.1f}".format(signal_sky[0][2])
-                
+
                 se(o, "text").text = "DETAILS OF S/N CALCULATIONS:"
                 ap1, ap2 = 1.2, 2.0
                 se(o, "text").text = "Per Aperture:"
@@ -845,17 +845,17 @@ class EmirGui:
                 se(o, "text").text = "diameter = {0}*seeing = "\
                     "{1:.2f} arcsecs or {2:.2f} pixels"\
                     .format(ap1, ap1*self.seeing, ap1*self.seeing / params['scale'])
-                se(o, "text").text = "Total counts in 1.2*seeing aperture: "\
+                se(o, "text").text = "Total counts in aperture: "\
                     "from object = {0:.1f}, from sky = {1:.1f}"\
                     .format(signal_obj[0][0], signal_sky[0][0])
                 se(o, "text").text = "Aperture 2:"
                 se(o, "text").text = "diameter = {0}*seeing = "\
                     "{1:.2f} arcsecs or {2:.2f} pixels"\
                     .format(ap2, ap2*self.seeing, ap2*self.seeing / params['scale'])
-                se(o, "text").text = "Total counts in 2.0*seeing aperture: "\
+                se(o, "text").text = "Total counts in aperture: "\
                     "from object = {0:.1f}, from sky = {1:.1f}"\
                     .format(signal_obj[0][1], signal_sky[0][1])
-                
+
                 se(o, "text").text = "S/N Estimates:"
                 se(o, "text").text = "Maximum S/N per pixel = {0:.1f}".format(ston[0][2])
                 se(o, "text").text = "Final S/N per 1.2*seeing aperture = {0:.1f}".format(ston[0][0])
@@ -882,29 +882,27 @@ class EmirGui:
                     " = {0:.1f}".format(signal_obj[0][2])
                 se(o, "text").text = "Median sky counts per pixel per second: "\
                     " = {0:.1f}".format(signal_sky[0][2])
-                
 
                 se(o, "text").text = "Per Aperture:"
                 se(o, "text").text = "Aperture 1:"
                 se(o, "text").text = "diameter = {0}*seeing = "\
                     "{1:.2f} arcsecs or {2:.2f} pixels"\
                     .format(ap1, ap1*self.seeing, ap1*self.seeing / params['scale'])
-                se(o, "text").text = "Total counts in 1.2*seeing aperture: "\
+                se(o, "text").text = "Total counts in aperture: "\
                     "from object = {0:.1f}, from sky = {1:.1f}"\
                     .format(signal_obj[0][0], signal_sky[0][0])
                 se(o, "text").text = "Aperture 2:"
                 se(o, "text").text = "diameter = {0}*seeing = "\
                     "{1:.2f} arcsecs or {2:.2f} pixels"\
                     .format(ap2, ap2*self.seeing, ap2*self.seeing / params['scale'])
-                se(o, "text").text = "Total counts in 2.0*seeing aperture: "\
+                se(o, "text").text = "Total counts in aperture: "\
                     "from object = {0:.1f}, from sky = {1:.1f}"\
                     .format(signal_obj[0][1], signal_sky[0][1])
 
                 tabletext += '\n\tFor the selected time range, the S/N estimates are:'.format(1.2)
                 tabletext += '\n\t------------------------------------------------------------------------'
-                tabletext += '\n\t    t(s)\tS/N(per pixel)\tS/N(1.2*seeing)\tS/N(2.0*seeing)\tSaturation?'
+                tabletext += '\n\t    t (s)\t  S/N<sub>pp</sub>\t\tS/N<sub>1.2*FWHM</sub>\t S/N<sub>2.0*FWHM</sub>\tSaturation?'
                 tabletext += '\n\t------------------------------------------------------------------------'
-                
 
             for i in range(0, 10):  # FGL 13jun
                 flags = 'No'

@@ -124,13 +124,12 @@ def getfiltwidth(wvl, filt):
 def getnoise(image, t_exp):
     """
     Return the noise image to a given input,
-    including RON, shot noise of all the signals and DC
+    including RON, dark current and shot noise of the signal in image
     """
     param = get_params()
-    ron = np.ones_like(image)*param['RON']               # Readout noise
-    dc = np.ones_like(image)*np.sqrt(param['DC']*t_exp)  # Dark Current
-    shot = np.sqrt(image)                                # Shot noise
-    # Added in quad.
+    ron = np.ones_like(image)*param['RON']
+    dc = np.ones_like(image)*np.sqrt(param['DC']*t_exp)
+    shot = np.sqrt(image)
     noise = np.sqrt(ron**2 + dc**2 + shot**2)
     return noise
 

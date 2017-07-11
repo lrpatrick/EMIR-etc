@@ -135,10 +135,15 @@ def get_grism(grism='K'):
         grism_file = 'grisms/grism_hk.dat'
         filter_curve = get_filter('HK')
         res = 987.
+    # Simulated grisms:
+    elif (grism == 'K_Y'):
+        grism_file = 'grisms/grism_k_y.dat'
+        filter_curve = get_filter('Y')
+        res = 4000.*1.067485  # Same as K
     return res, SpecCurve(grism_file), filter_curve
 
 
-def get_skymag(filt):
+def get_skymag(filt, season):
     """
     Return the sky magnitude appropriate for the filter
     J, H and K values are emprical values from La Palma technical note #115
@@ -163,11 +168,14 @@ def get_skymag(filt):
     16.5    15.5    15.5    14.0    13.2    12.6
     "
     """
+    # Updated for Ks-band
+    season_dict = {"Summer": 12.5, "Winter": 13.0}
+
     skymag_dict = {
         # Broad band filters:
-        "Y": 18.0, "J": 16.6, "H": 14.4, "Ks": 12.5,
+        "Y": 18.0, "J": 16.6, "H": 14.4, "Ks": season_dict[season],
         # Spectroscopic filters:
-        "YJ": 16.3, "HK": 13.7, "K": 12.5,
+        "YJ": 16.3, "HK": 13.7, "K": season_dict[season], "K_Y": 18.0,
         # Narrow band filters:
         "FeII": 12.5, "FeII_cont": 12.5, "BrG": 15.4, "BrG_cont": 15.4,
         "H2(1-0)": 13.3, "H2(2-1)": 12.0,

@@ -257,10 +257,8 @@ def mag_convert(filt):
 
 def reality_factor(filt):
     """
-    Scale the final S/N with an empirically defined reality factor
-
     FGL 13jun
-    Better, scale the meas. counts with an empirically defined reality factor.
+    Scale the meas. counts with an empirically defined reality factor.
     """
     reality = {
         # Broad band filters:

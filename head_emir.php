@@ -38,6 +38,7 @@
 			lineCenterData['photo_filter']['H2(2-1)']  = [2.235, 2.249, 2.264];
 
 			lineCenterData['spec_grism'] = [];
+			lineCenterData['spec_grism']['K_Y']        = [0.96, 1.03, 1.09];
 			lineCenterData['spec_grism']['J']          = [1.17, 1.25, 1.33];
 			lineCenterData['spec_grism']['H']          = [1.51, 1.65, 1.76];
 			lineCenterData['spec_grism']['K']          = [2.05, 2.35, 2.43];

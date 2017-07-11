@@ -44,6 +44,7 @@ function endsWith($haystack, $needle) {
 
     // SELECT FIELDS
     $system_vals   =  array("Vega", "AB"); // Added LRP 16-05-2017
+    $season_vals   =  array("Summer", "Winter"); // Added LRP 10-07-2017
     $source_type_vals   =  array("Point", "Extended");
     $model_vals         =  array("b0i", "b1i", "b3i", "b5i", "b8i", "a0i", "a2i", "f0i", "f5i", "f8i", "g0i", "g2i", "g5i", "g8i", "k2i",
                                  "k3i", "k4i", "m2i", "o8iii", "b3iii", "b5iii", "b9iii", "a0iii", "a3iii", "a5iii", "a7iii", "f0iii",
@@ -55,16 +56,16 @@ function endsWith($haystack, $needle) {
     $template_vals      =  array("Model library", "Black body", "Emission line", "Model file");
     $filter_vals        =  array("Y", "J", "H", "Ks",
                                  "F123M", "FeII", "FeII_cont", "BrG", "BrG_cont", "H2(1-0)", "H2(2-1)"); // Y, F123M, H10, H21 Added by LRP 
-    $grism_vals         =  array("J", "H", "K", "YJ", "HK");
+    $grism_vals         =  array("J", "H", "K", "YJ", "HK", "K_Y");
     $operation_vals     =  array("Photometry", "Spectroscopy");
 
 
     // FIELDS CONFIGURATION
     // Everything you need to do to display and store (XML format) fields has to be done HERE.
     // There are different parameters depending on the field:
-  //  - id: HTML name and id of each field
+    //  - id: HTML name and id of each field
     //  - group: To be displayed in the correct fieldset
-  //  - label: Text to be displayed near the field
+    //  - label: Text to be displayed near the field
     //  - type: field type: "Text", "Number", "Select", "File", "Radio", "Submit", etc.
     //  - value: default value
     //  - unit: Unit to be displayed after the field
@@ -83,9 +84,13 @@ function endsWith($haystack, $needle) {
                              'type' => "Number", 'min' => '0', 'step' => '0.01',
                              'value' => "0.0", 'unit' => "" ),
         'system' => array('group' => 0, 'label' => 'System',
-                          'type' => "Select", 'values' => $system_vals,
+                          'type' => "Radio", 'values' => $system_vals,
                           'value' => "Vega",  'unit' => "",
                           'info' => 'Magnitude System'),
+        'season' => array('group' => 0, 'label' => 'Season',
+                          'type' => "Radio", 'values' => $season_vals,
+                          'value' => "Summer",  'unit' => "",
+                          'info' => 'Determines the sky magnitude brightness values (only change in K)'),
         'source_type' => array('group' => 0, 'label' => 'Source Type',
                                'type' => "Select", 'values' => $source_type_vals,
                                'value' => "Point",  'unit' => "",

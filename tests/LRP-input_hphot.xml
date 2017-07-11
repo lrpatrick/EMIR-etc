@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 <data>
     <country name="Liechtenstein">
-        <magnitude>13.</magnitude>
+        <magnitude>6.62</magnitude>
         <system>Vega</system>
         <source_type>Point</source_type>
         <template>Black body</template>
@@ -10,13 +10,13 @@
         <line_center>2.260001</line_center>
         <line_fwhm>1.5</line_fwhm>
         <line_peakf>1.0</line_peakf>
-        <airmass>1.5</airmass>
-        <seeing>0.8</seeing>
+        <airmass>1.</airmass>
+        <seeing>0.9</seeing>
         <operation>Photometry</operation>
-        <photo_exp_time>1.-10.</photo_exp_time>
+        <photo_exp_time>30.</photo_exp_time>
         <photo_nf_obj>1.</photo_nf_obj>
         <photo_nf_sky>1.</photo_nf_sky>
-        <photo_filter>Ks</photo_filter>
+        <photo_filter>H</photo_filter>
         <spec_slit_width>0.8</spec_slit_width>
         <spec_grism>H</spec_grism>
         <spec_exp_time>1.</spec_exp_time>

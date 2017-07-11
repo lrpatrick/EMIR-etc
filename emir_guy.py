@@ -100,6 +100,8 @@ def check_inputs(ff, fname):
             (val1, val2) = (0.899, 1.331)
         elif ff['spec_grism'] == 'HK':
             (val1, val2) = (1.454, 2.405)
+        elif ff['spec_grism'] == 'K_Y':
+            (val1, val2) = (0.96, 1.09)
 
     NAME = 0
     TITLE = 1
@@ -112,6 +114,7 @@ def check_inputs(ff, fname):
     DATA_INPUT = [
         ['magnitude', 'Magnitude', 'float', None, None, 0, None],
         ['system', 'System', 'select', ['Vega', 'AB']],
+        ['season', 'Season', 'select', ['Summer', 'Winter']],
         ['source_type', 'Source Type', 'select', ['Extended', 'Point']],
         ['template', 'Spectral Template', 'select',
             ['Model library', 'Black body', 'Emission line', 'Model file']],
@@ -157,7 +160,7 @@ def check_inputs(ff, fname):
              'F123M']],
         ['spec_slit_width', 'Slit Width', 'float', None, 'Spectroscopy',
          0, None],
-        ['spec_grism', 'Grism', 'select', ['J', 'H', 'K', 'YJ', 'HK']],
+        ['spec_grism', 'Grism', 'select', ['J', 'H', 'K', 'YJ', 'HK', 'K_Y']],
         ['spec_exp_time', 'Exp. time', 'range', None, 'Spectroscopy', 0, None],
         ['spec_nf_obj', '#Frames:obj', 'float', None, 'Spectroscopy', 0, None],
         ['spec_nf_sky', '#Frames:sky', 'float', None, 'Spectroscopy', 0, None],
@@ -176,16 +179,11 @@ def check_inputs(ff, fname):
 
     # Check Type
 
-        if elems[TYPE] == 'float' or elems[TYPE] == 'range' and not '-' \
-            in val:
+        if elems[TYPE] == 'float' or elems[TYPE] == 'range' and not '-' in val:
             try:
                 float(val)
             except:
-
-        # int(val)
-
-                errorxml(output, 'Value of ' + elems[TITLE]
-                         + ' is not a valid number')
+                errorxml(output, 'Value of ' + elems[TITLE] + ' is not a valid number')
                 error = True
                 continue
 
@@ -211,7 +209,6 @@ def check_inputs(ff, fname):
 
             rval = val.split('-')
 
-      # print str(rval)
 
             if len(rval) != 2:
                 errorxml(output, 'Value of ' + elems[TITLE]

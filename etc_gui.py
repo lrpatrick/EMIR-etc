@@ -71,7 +71,7 @@ import matplotlib.pylab as plt
 description = ">> Exposure Time Calculator for EMIR. Contact Lee Patrick"
 usage = "%prog [options]"
 
-version = '2.0.7'
+version = '2.0.8'
 
 if len(sys.argv) == 1:
     print(help)
@@ -269,6 +269,7 @@ class EmirGui:
         #
         #    Calling the function that calculates the STON
         #
+
         if self.timerange == 'Single':
             ston, src_cnts, sky_cnts, sp,\
                 saturated, params = self.getSpecSton(self.texp, self.nobj,
@@ -406,7 +407,9 @@ class EmirGui:
         params = con.get_params()
 
         # 1. Calculate visible wavelengths
-        self.mag_sky = con.get_skymag(self.grismname)
+
+        # import pdb; pdb.set_trace()
+        self.mag_sky = con.get_skymag(self.grismname, ff['season'])
         self.cenwl = (self.ldo_hr*self.disp_trans).sum()/(self.disp_trans).sum()
         self.dpx = (self.cenwl/self.specres)/3.
         self.res_ele = self.dpx*(self.slitwidth/(params['scale']))
@@ -432,9 +435,9 @@ class EmirGui:
                 no = (10**(-1*self.mag/2.5))*\
                     mod.vega(self.obj, self.vega, filt_r)*params['area']
             # Sky
-            ns_b = 10**(-con.get_skymag(self.gname_b)/2.5)*\
+            ns_b = 10**(-con.get_skymag(self.gname_b, ff['season'])/2.5)*\
                 mod.vega(self.sky_e, self.vega, filt_b)*params['area']
-            ns_r = 10**(-con.get_skymag(self.gname_r)/2.5)*\
+            ns_r = 10**(-con.get_skymag(self.gname_r, ff['season'])/2.5)*\
                 mod.vega(self.sky_e, self.vega, filt_r)*params['area']
 
             # 3. Convolve with input resolution (sky)
@@ -498,8 +501,8 @@ class EmirGui:
             ind = np.where(r <= 1.2*self.seeing/2./params['scale'])[0]
 
             # 5. S/N calculation signal-to-noise
-            ston_sp = (im_spec - im_sky)[:, ind].sum(1)/\
-                np.sqrt((total_noise[:, ind]**2).sum(1))
+            ston_sp = (im_spec - im_sky)[:, ind].sum(axis=1)/\
+                np.sqrt((total_noise[:, ind]**2).sum(axis=1))
             satur = mod.checkforsaturation(im_spec[:, ind])
             # Calculate original spectrum for display
             con_0 = mod.convolres(self.ldo_hr, self.sloss*texp*no, self.dpx)
@@ -515,6 +518,7 @@ class EmirGui:
                                (mod.getnoise(sp_sky, texp)/np.sqrt(nsky))**2)
 
             satur = mod.checkforsaturation(sp_obj + sp_sky)
+
             # 5. S/N calculation signal-to-noise
             ston_sp = sp_obj/im_noise
             # Calculate original spectrum for display
@@ -524,6 +528,7 @@ class EmirGui:
 
         obj_cnts = sp_obj/params['gain']
         sky_cnts = sp_sky/params['gain']
+
         return ston_sp, obj_cnts, sky_cnts, sp_0/sp_0.max(), satur, params
 
     def getPhotSton(self, texp=1, nobj=1, nsky=1):
@@ -538,7 +543,7 @@ class EmirGui:
         4.- Calcualte Signal-to-noise
         """
         params = con.get_params()
-        self.mag_sky = con.get_skymag(self.filtname)
+        self.mag_sky = con.get_skymag(self.filtname, ff['season'])
         # ston = np.zeros_like(texp)
         satur = np.zeros_like(texp)
         # Added by LRP from MBC's ETC
@@ -558,10 +563,6 @@ class EmirGui:
             no = (10**(-1*self.mag/2.5))\
                 *mod.vega(self.obj, self.vega, self.filt_hr)\
                 *params['area']*step
-        # Why is this repeated here?
-        # Is this supposed to be here?
-        #if ff['template'] == 'Emission line':
-        #    no = no + self.obj*params['area']*step
 
         # Sky:
         sky_e_vega = mod.vega(self.sky_e, self.vega, self.filt_hr)
@@ -581,6 +582,7 @@ class EmirGui:
         # to properly account for the effect of the RON and sky.
         # In the case of extended sources, the estimated values are per pixel
 
+        # Implement the reality factor
         rfact = mod.reality_factor(self.filtname)
         if ff['source_type'] == 'Point':
             # 3.- Synthethic image generation
@@ -598,7 +600,6 @@ class EmirGui:
             ind2 = np.where(im_r <= (2.0*self.seeing / 2.) / params['scale'])
 
             # 4.- Calcualte Signal-to-noise
-
 
             for i in range(len(texp)):
                 im_obj = mod.getspread(fl_obj[i], self.seeing, 1) + fl_sky[i]
@@ -627,6 +628,7 @@ class EmirGui:
                 # Added by LRP from MBC's ETC
                 # MBC added 2016-11-28
                 # total counts from source and sky in aperture
+                # Updated by LRP in 06-2017
                 signal_obj[i][0] = (im_obj - im_sky)[ind].sum() / params['gain']
                 signal_sky[i][0] = im_sky[ind].sum() / params['gain']
                 signal_obj[i][1] = (im_obj - im_sky)[ind2].sum() / params['gain']
@@ -663,7 +665,6 @@ class EmirGui:
                 signal_sky[i][1] = im_sky.sum() / params['gain']
                 signal_obj[i][2] = im_obj.max()/params['gain']/texp[i]
                 signal_sky[i][2] = im_sky.min()/params['gain']/texp[i]
-            # import pdb; pdb.set_trace()
         return ston, signal_obj, signal_sky, satur, params, sp_obj, sp_sky
 
     def buildObj(self):
@@ -818,17 +819,17 @@ class EmirGui:
         tabletext = ""
         if self.timerange != 'Range':
             se(o, "text").text = "For {0:d} exposure(s) of {1:.1f} s: ".format(int(self.nobj), self.texp[0])
-            if ff['operation']=='Spectroscopy':
+            if ff['operation'] =='Spectroscopy':
                 if ff['template'] == 'Emission line':
-                    snrfac = max(1, np.sqrt(self.lwidth[0]/self.dpx))
+                    px_res_ele = max(1, np.sqrt(self.lwidth[0]/self.dpx))
                     se(o, "text").text = "Maximum counts from object {0:.1f}, median from sky: {1:.1f}"\
                         .format(signal_obj[0], signal_sky[0])
-                    se(o, "text").text = "Maximum S/N per FWHM = {0:.1f}".format(ston[0]*snrfac)
+                    se(o, "text").text = "Maximum S/N per FWHM = {0:.1f}".format(ston[0]*px_res_ele)
                 else:
-                    snrfac = max(1, np.sqrt(self.slitwidth/params['scale']))
+                    px_res_ele = max(1, np.sqrt(self.slitwidth/params['scale']))
                     se(o, "text").text = "Median counts per res. element: from object = {0:.1f}, from sky = {1:.1f}"\
-                        .format(signal_obj[0]*snrfac, signal_sky[0]*snrfac)
-                    se(o, "text").text = "Median S/N per res. element = {0:.1f}".format(ston[0]*snrfac)
+                        .format(signal_obj[0]*px_res_ele, signal_sky[0]*px_res_ele)
+                    se(o, "text").text = "Median S/N per res. element = {0:.1f}".format(ston[0]*px_res_ele)
                     se(o, "text").text = "Median S/N per pixel = {0:.1f}".format(ston[0])
             else:  # Photometry
                 se(o, "text").text = "DETAILS OF S/N CALCULATIONS:"

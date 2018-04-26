@@ -11,6 +11,10 @@ a wrapper (also in python) to make the scripts usable online
 The underlying python script was written by Carlos Gonzalez-Fernandez
 (cambridge) and the wrapper was written by Matteo Miluzio (ESAC)
 
+v1.0.9 27-04-2018
+    Fix bug to add a dependence on the input magnitude for 'Model file' when
+    'normal_flux' is used as units
+
 v1.0.8 14-04-2017
     Standard structure for all filter files
     Improved standardisation of etc_modules
@@ -44,7 +48,6 @@ v.1.0.3 05-12-2016
 
 TODO: Make better naming choices for variables
 Work out where the slowest parts of this code are
-Trim down the ETC to speed up the process
 
 Author: LRP lpatrick@iac.es
 Date: 28-11-2016
@@ -71,7 +74,7 @@ import matplotlib.pylab as plt
 description = ">> Exposure Time Calculator for EMIR. Contact Lee Patrick"
 usage = "%prog [options]"
 
-version = '2.0.8'
+version = '2.0.9'
 
 if len(sys.argv) == 1:
     print(help)
@@ -430,10 +433,15 @@ class EmirGui:
             filt_r = self.filt_hr*(self.ldo_hr >= split[self.grismname])
 
             # 2. Scale object and sky with Vega
+            # Third statement added by LRP 24-04-2018
             # Object
-            if (ff['template'] == 'Black body') | (ff['template'] == 'Model library'):
+            if (ff['template'] == 'Black body') |\
+               (ff['template'] == 'Model library') |\
+               ((ff['template'] == 'Model file') &
+                    (self.obj_units == 'normal_photon')):
                 no = (10**(-1*self.mag/2.5))*\
                     mod.vega(self.obj, self.vega, filt_r)*params['area']
+
             # Sky
             ns_b = 10**(-con.get_skymag(self.gname_b, ff['season'])/2.5)*\
                 mod.vega(self.sky_e, self.vega, filt_b)*params['area']
@@ -452,9 +460,13 @@ class EmirGui:
 
         else:
             # 2. Scale object and sky with Vega
-            if (ff['template'] == 'Black body') | (ff['template'] == 'Model library'):
+            if (ff['template'] == 'Black body') |\
+               (ff['template'] == 'Model library') |\
+               ((ff['template'] == 'Model file') &
+                    (self.obj_units == 'normal_photon')):
                 no = (10**(-1*self.mag/2.5))*\
                     mod.vega(self.obj, self.vega, self.filt_hr)*params['area']
+
             ns = (10**(-1*self.mag_sky/2.5))*\
                 mod.vega(self.sky_e, self.vega, self.filt_hr)*params['area']
 

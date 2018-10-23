@@ -435,7 +435,7 @@ function endsWith($haystack, $needle) {
 
                 $XMLElements = ["error", "warning", "text", "table", "fig"];
 
-                echo "</a><h1>RESULTS</h1>\n";
+                echo "</a><h1>Results</h1>\n";
                 foreach ($XMLElements as $elem) {
                     $outputs = $xml_result->xpath("//$elem");
                     if ($outputs) {
@@ -443,11 +443,12 @@ function endsWith($haystack, $needle) {
                             if (trim($out) == "")
                                 continue;
                             if (in_array($elem, array("error", "warning", "text"))) {
-                                echo "<span class=\"results_$elem\">$out</span><br />\n";
+                                // echo "<span class=\"results_$elem\">$out</span><br />"; // using the style.ccs file
+                                echo "$out<br />"; // not using the style.css file
                             }
                             elseif ($elem == "table") {
-                                echo "<br /><h2>Table</h2>\n";
-                                echo "<pre>$out</pre>\n";
+                                echo "<h2>Table</h2>";
+                                echo "<pre>$out</pre>";
                             }
                             elseif ($elem == "fig") {
                                 if (startswith($out, DATA_DIR) && endswith($out, ".png") && file_exists($out)) {

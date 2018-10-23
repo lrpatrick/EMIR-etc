@@ -121,6 +121,41 @@ def getfiltwidth(wvl, filt):
     return [imin, imax]
 
 
+def nreadlut(t_exp):
+    """
+    Find the number of reads for a RAMP exposure from the given exposure time
+
+    If the user can input literally any exposure time, this function (or a top
+    level function) needs to be able to handle that and return something
+    sensible
+
+    The minimum exposure time available for RAMP is 20s. This function accepts
+    nothing less than 20s
+    """
+    nread_dict = {20: 5, 30: 5,
+                  60: 10, 120: 10, 160: 10, 200: 10,
+                  240: 10, 280: 10, 320: 10, 360: 10}
+    return nread_dict[t_exp]
+
+
+def getenoise(t_exp):
+    """
+    Return the effective noise scale factor as determined by the exposure time
+
+    The noise is scaled according to the read out mode and number of reads
+    (in the case of RAMP)
+    """
+    sf = 1.0
+
+    # CDS
+    if t_exp < 20.0:
+        sf = np.sqrt(2)
+    # RAMP
+    else:
+        nreads = 5  # nreadlut(t_exp)
+    return sf
+
+
 def getnoise(image, t_exp):
     """
     Return the noise image to a given input,
@@ -131,7 +166,8 @@ def getnoise(image, t_exp):
     dc = np.ones_like(image)*np.sqrt(param['DC']*t_exp)
     shot = np.sqrt(image)
     noise = np.sqrt(ron**2 + dc**2 + shot**2)
-    return noise
+    enoise = noise / getenoise(t_exp)
+    return enoise
 
 
 def getspread(flux=1., seeing=0.6, photo=0):

@@ -11,6 +11,10 @@ a wrapper (also in python) to make the scripts usable online
 The underlying python script was written by Carlos Gonzalez-Fernandez
 (cambridge) and the wrapper was written by Matteo Miluzio (ESAC)
 
+v2.0.10 22-10-2018
+    Bug fix in spectroscopy range (split loops for spec. and phot. )
+
+
 v1.0.9 27-04-2018
     Fix bug to add a dependence on the input magnitude for 'Model file' when
     'normal_flux' is used as units
@@ -74,7 +78,7 @@ import matplotlib.pylab as plt
 description = ">> Exposure Time Calculator for EMIR. Contact Lee Patrick"
 usage = "%prog [options]"
 
-version = '2.0.9'
+version = '2.0.10'
 
 if len(sys.argv) == 1:
     print(help)
@@ -191,7 +195,7 @@ class EmirGui:
                 plt.ylabel('S/N per pixel')
             # import pdb; pdb.set_trace()
 
-            plt.savefig(args[0] + '_photo.png')
+            plt.savefig(args[0] + '_fig.png')
         else:
             self.printXML(signal_obj, signal_sky,
                           ston, saturated, **params)
@@ -389,7 +393,7 @@ class EmirGui:
             plt.plot(self.ldo_px, sp)
             plt.xlabel('Wavelength (micron)')
             plt.ylabel('Normalized src flux')
-        plt.savefig(args[0]+'_spec.png')
+        plt.savefig(args[0]+'_fig.png')
 
     def getSpecSton(self, texp=1, nobj=1, nsky=1):
         """
@@ -743,186 +747,185 @@ class EmirGui:
         Updated to inlucde more output by LRP 08-12-2016
         Mainly taken from Marc Balcells' version of the ETC
 
-        TODO: this doesn't need texp to be an arugment, we have self.texp
-
         Would this would be quicker if we just had a few already built xml
         templates and the code just filled in the appropriate template instead
         of generating it each time?
+
+        TODO: remodel this function, the format is confusing and needs a large
+        number of ifs
         """
         # Some redefinitions to make life easier
         o = ET.Element("output")
         se = ET.SubElement
 
-        if ff['operation'] == 'Photometry':
-            fig_name = args[0] + "_photo.png"
-        else:
-            fig_name = args[0] + "_spec.png"
-
-        se(o, "fig").text = fig_name
-
-        se(o, "text").text = "Current ETC Version: {}".format(version)
-        se(o, "text").text = "SOURCE:"
+        se(o, "fig").text = args[0] + "_fig.png"
+        se(o, "text").text = "<h2>EMIR-ETC Version {}</h2>".format(version)
+        se(o, "text").text = "<b>Source</b>"
 
         if ff['operation'] == 'Photometry':
-            se(o, "text").text = "{0:s} Source (Vega Mag) = {1:.3f} {2}".\
+            se(o, "text").text = "&nbsp;&nbsp;&nbsp;&nbsp;{0:s} Source (Vega Mag) = {1:.2f} {2}".\
                 format(ff['source_type'], self.mag, self.filtname)
         elif self.grismname == 'YJ' or self.grismname == 'HK':
-            se(o, "text").text = "{0:s} Source (Vega Mag) = {1:.3f} {2}".\
+            se(o, "text").text = "&nbsp;&nbsp;&nbsp;&nbsp;{0:s} Source (Vega Mag) = {1:.2f} {2}".\
                 format(ff['source_type'], self.mag, self.gname_r)
         else:
-            se(o, "text").text = "{0:s} Source (Vega Mag) = {1:.3f} {2}".\
+            se(o, "text").text = "&nbsp;&nbsp;&nbsp;&nbsp;{0:s} Source (Vega Mag) = {1:.2f} {2}".\
                 format(ff['source_type'], self.mag, self.grismname)
 
-        # se(o, "text").text = "{0:s} Source (Vega Mag) = {1:.3f}".\
-        #     format(ff['source_type'], self.mag)
         if ff['template'] == 'Model library':
-            se(o, "text").text = "Template: Model library"
-            se(o, "text").text= "Spectral Type: {0:s}".format(ff['model'])
+            se(o, "text").text = "&nbsp;&nbsp;&nbsp;&nbsp;Template: Model library"
+            se(o, "text").text= "&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Spectral Type: {0:s}".format(ff['model'])
         elif ff['template'] == 'Black body':
-            se(o, "text").text = "Template: Black Body"
-            se(o, "text").text = "Temperature = {0:.1f} K".format(float(ff['body_temp']))
+            se(o, "text").text = "&nbsp;&nbsp;&nbsp;&nbsp;Template: Black Body"
+            se(o, "text").text = "&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Temperature = {0:.1f} K".format(float(ff['body_temp']))
         elif ff['template'] == 'Emission line':
-            se(o, "text").text = "Template: Emission Line"
-            se(o, "text").text = "Center = {0:s}, FWHM = {1:s}, Total line flux = {2:s}"\
+            se(o, "text").text = "&nbsp;&nbsp;&nbsp;&nbsp;Template: Emission Line"
+            se(o, "text").text = "&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Center = {0:s}, FWHM = {1:s}, Total line flux = {2:s}"\
                 .format(ff['line_center'], ff['line_fwhm'], ff['line_peakf'])
         elif ff['template'] == 'Model file':
-            se(o, "text").text = "Template: Model file"
-            se(o, "text").text = "Model file = {0:s}".format(ff['model_file'])
+            se(o, "text").text = "&nbsp;&nbsp;&nbsp;&nbsp;Template: Model file"
+            se(o, "text").text = "&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Model file = {0:s}".format(ff['model_file'])
 
-        se(o, "text").text = "----------------------------------------------------------------"
-        se(o, "text").text = "OBSERVATION:"
-        se(o, "text").text = "Operation: {0:s}".format(ff['operation'])
+        se(o, "text").text = "<b>Observation</b>"
+        se(o, "text").text = "&nbsp;&nbsp;&nbsp;&nbsp;Operation: {0:s}".format(ff['operation'])
         if self.timerange == 'Range':
-            se(o, "text").text = "Exposure times = {0:8.1f} - {1:8.1f}".format(self.texp[0], self.texp[-1])
+            se(o, "text").text = "&nbsp;&nbsp;&nbsp;&nbsp;Exposure times = {0:8.1f} - {1:8.1f}".format(self.texp[0], self.texp[-1])
         else:
-            se(o, "text").text = "Exposure time(s) = {0:8.1f}".format(self.texp[0])
-        se(o, "text").text = "Number of exposures: Object {0:d}, Sky {1:d}".format(int(self.nobj), int(self.nsky))
-        se(o, "text").text = "----------------------------------------------------------------"
-        se(o, "text").text = "TELESCOPE AND INSTRUMENT:"
-        se(o, "text").text = "Telescope collecting area = {0:.1f} m<sup>2</sup>".format(params['area'])
-        se(o, "text").text = "Spatial scale = {0:.4f} arcsec/pix ".format(params['scale'])
-        se(o, "text").text = "Readout noise = {0:.1f} e<sup>-</sup> ".format(params['RON'])
-        se(o, "text").text = "Dark current = {0:.2f} ADU/hour".format(3600*params['DC']/params['gain'])
-        se(o, "text").text = "Well depth = {0:.1f} e<sup>-</sup>".format(params['well'])
-        se(o, "text").text = "Gain = {0:.2f} e<sup>-</sup>/ADU".format(params['gain'])
-        se(o, "text").text = "Effective gain = {0:.2f} ".format(params['gain']*self.nobj)
+            se(o, "text").text = "Exposure time = {0:8.1f}".format(self.texp[0])
+        se(o, "text").text = "&nbsp;&nbsp;&nbsp;&nbsp;Number of exposures: Object {0:d}, Sky {1:d}".format(int(self.nobj), int(self.nsky))
+
+        se(o, "text").text = "<b>Observing Conditions</b>"
+        se(o, "text").text = "&nbsp;&nbsp;&nbsp;&nbsp;Airmass = {0:.2f}".format(self.airmass)
+        se(o, "text").text = "&nbsp;&nbsp;&nbsp;&nbsp;Seeing = {0:.2f} arcsec FWHM".format(self.seeing)
+        se(o, "text").text = "&nbsp;&nbsp;&nbsp;&nbsp;Sky brightness = {0:.2f} Vega mag/arcsec<sup>2</sup>".format(self.mag_sky)
+
+        se(o, "text").text = "<b>Telescope and Instrument </b>"
+        se(o, "text").text = "&nbsp;&nbsp;&nbsp;&nbsp;Telescope collecting area = {0:.1f} m<sup>2</sup>".format(params['area'])
+        se(o, "text").text = "&nbsp;&nbsp;&nbsp;&nbsp;Spatial scale = {0:.4f} arcsec/pix ".format(params['scale'])
+        se(o, "text").text = "&nbsp;&nbsp;&nbsp;&nbsp;Readout noise = {0:.1f} e<sup>-</sup> ".format(params['RON'])
+        se(o, "text").text = "&nbsp;&nbsp;&nbsp;&nbsp;Dark current = {0:.2f} ADU/hour".format(3600*params['DC']/params['gain'])
+        se(o, "text").text = "&nbsp;&nbsp;&nbsp;&nbsp;Well depth = {0:.1f} e<sup>-</sup>".format(params['well'])
+        se(o, "text").text = "&nbsp;&nbsp;&nbsp;&nbsp;Gain = {0:.2f} e<sup>-</sup>/ADU".format(params['gain'])
+        se(o, "text").text = "&nbsp;&nbsp;&nbsp;&nbsp;Effective gain = {0:.2f} ".format(params['gain']*self.nobj)
         if ff['operation'] == 'Photometry':
-            se(o, "text").text = "Filter: {0:s} ".format(self.filtname)
-        else:		# Spectroscopy
-            se(o, "text").text = "Grism: {0:s}".format(self.grismname)
-            se(o, "text").text = "Slit width = {0:.2f} arcsec".format(self.slitwidth)
-            se(o, "text").text = "Wavelength coverage = {0:.2f} - {1:.2f} &mu;".format(self.ldo_px[0],self.ldo_px[-1])
-            se(o, "text").text = "Central wavelength = {0:.4f} ".format(self.cenwl)
-            se(o, "text").text = "Dispersion = {0:.2f} &Aring;/pix".format(self.dpx*1e4)
-            se(o, "text").text = "Resolution element = {0:.2f} &Aring or {1:.2f} px"\
+            se(o, "text").text = "&nbsp;&nbsp;&nbsp;&nbsp;Filter: <b>{0:s}</b>".format(self.filtname)
+        else:       # Spectroscopy
+            se(o, "text").text = "&nbsp;&nbsp;&nbsp;&nbsp;Grism: <b>{0:s}</b>".format(self.grismname)
+            se(o, "text").text = "&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Wavelength coverage = {0:.2f} - {1:.2f} &mu;".format(self.ldo_px[0],self.ldo_px[-1])
+            se(o, "text").text = "&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Central wavelength = {0:.4f} ".format(self.cenwl)
+            se(o, "text").text = "&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Dispersion = {0:.2f} &Aring;/pix".format(self.dpx*1e4)
+            se(o, "text").text = "&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Resolution element = {0:.2f} &Aring or {1:.2f} px"\
                 .format(self.res_ele*1e4, self.res_ele/self.dpx)
-            se(o, "text").text = "In-slit fraction = {0:.4f} ".format(self.sloss)
-            se(o, "text").text = "Nominal Spectral resolution = {0:.4f}".format(self.specres)
-            se(o, "text").text = "Achieved Spectral resolution = {0:.4f}".format(self.cenwl/self.res_ele)
-        se(o, "text").text = "----------------------------------------------------------------"
-        se(o, "text").text = "OBSERVING CONDITIONS:"
-        se(o, "text").text = "Airmass = {0:.2f}".format(self.airmass)
-        se(o, "text").text = "Seeing = {0:.2f} arcsec FWHM".format(self.seeing)
-        se(o, "text").text = "Sky brightness = {0:.2f} Vega mag/arcsec<sup>2</sup>".format(self.mag_sky)
-        se(o, "text").text = " "
-        se(o, "text").text = "----------------------------------------------------------------"
-        se(o, "text").text = "RESULTS:"
+            se(o, "text").text = "&nbsp;&nbsp;&nbsp;&nbsp;Slit width = {0:.2f} arcsec".format(self.slitwidth)
+            se(o, "text").text = "&nbsp;&nbsp;&nbsp;&nbsp;In-slit fraction = {0:.4f} ".format(self.sloss)
+            se(o, "text").text = "&nbsp;&nbsp;&nbsp;&nbsp;Nominal Spectral resolution = {0:.4f}".format(self.specres)
+            se(o, "text").text = "&nbsp;&nbsp;&nbsp;&nbsp;Achieved Spectral resolution = {0:.4f}".format(self.cenwl/self.res_ele)
+
+        se(o, "text").text = "<b>Results</b>"
 
         tabletext = ""
         if self.timerange != 'Range':
-            se(o, "text").text = "For {0:d} exposure(s) of {1:.1f} s: ".format(int(self.nobj), self.texp[0])
+            se(o, "text").text = "&nbsp;&nbsp;&nbsp;&nbsp;For {0:d} exposure(s) of {1:.1f} s: ".format(int(self.nobj), self.texp[0])
             if ff['operation'] =='Spectroscopy':
                 if ff['template'] == 'Emission line':
                     px_res_ele = max(1, np.sqrt(self.lwidth[0]/self.dpx))
-                    se(o, "text").text = "Maximum counts from object {0:.1f}, median from sky: {1:.1f}"\
+                    se(o, "text").text = "&nbsp;&nbsp;&nbsp;&nbsp;Maximum counts from object {0:.1f}, median from sky: {1:.1f}"\
                         .format(signal_obj[0], signal_sky[0])
-                    se(o, "text").text = "Maximum S/N per FWHM = {0:.1f}".format(ston[0]*px_res_ele)
+                    se(o, "text").text = "&nbsp;&nbsp;&nbsp;&nbsp;Maximum S/N per FWHM = {0:.1f}".format(ston[0]*px_res_ele)
                 else:
                     px_res_ele = max(1, np.sqrt(self.slitwidth/params['scale']))
-                    se(o, "text").text = "Median counts per res. element: from object = {0:.1f}, from sky = {1:.1f}"\
+                    se(o, "text").text = "&nbsp;&nbsp;&nbsp;&nbsp;Median counts per res. element: from object = {0:.1f}, from sky = {1:.1f}"\
                         .format(signal_obj[0]*px_res_ele, signal_sky[0]*px_res_ele)
-                    se(o, "text").text = "Median S/N per res. element = {0:.1f}".format(ston[0]*px_res_ele)
-                    se(o, "text").text = "Median S/N per pixel = {0:.1f}".format(ston[0])
+                    se(o, "text").text = "&nbsp;&nbsp;&nbsp;&nbsp;Median S/N per res. element = {0:.1f}".format(ston[0]*px_res_ele)
+                    se(o, "text").text = "&nbsp;&nbsp;&nbsp;&nbsp;Median S/N per pixel = {0:.1f}".format(ston[0])
             else:  # Photometry
-                se(o, "text").text = "DETAILS OF S/N CALCULATIONS:"
-                se(o, "text").text = "Per Pixel:"
-                se(o, "text").text = "Maximum object counts per pixel per second: "\
+                se(o, "text").text = "&nbsp;&nbsp;&nbsp;&nbsp;S/N Calculations:"
+                se(o, "text").text = "&nbsp;&nbsp;&nbsp;&nbsp;Per Pixel:"
+                se(o, "text").text = "&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Maximum object counts per pixel per second: "\
                     " = {0:.1f}".format(signal_obj[0][2])
-                se(o, "text").text = "Median sky counts per pixel per second: "\
+                se(o, "text").text = "&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Median sky counts per pixel per second: "\
                     " = {0:.1f}".format(signal_sky[0][2])
 
-                se(o, "text").text = "DETAILS OF S/N CALCULATIONS:"
+                se(o, "text").text = "&nbsp;&nbsp;&nbsp;&nbsp;S/N Calculations:"
                 ap1, ap2 = 1.2, 2.0
-                se(o, "text").text = "Per Aperture:"
-                se(o, "text").text = "Aperture 1:"
-                se(o, "text").text = "diameter = {0}*seeing = "\
+                se(o, "text").text = "&nbsp;&nbsp;&nbsp;&nbsp;Per Aperture:"
+                se(o, "text").text = "&nbsp;&nbsp;&nbsp;&nbsp;Aperture 1:"
+                se(o, "text").text = "&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;diameter = {0}*seeing = "\
                     "{1:.2f} arcsecs or {2:.2f} pixels"\
                     .format(ap1, ap1*self.seeing, ap1*self.seeing / params['scale'])
-                se(o, "text").text = "Total counts in aperture: "\
+                se(o, "text").text = "&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Total counts in aperture: "\
                     "from object = {0:.1f}, from sky = {1:.1f}"\
                     .format(signal_obj[0][0], signal_sky[0][0])
-                se(o, "text").text = "Aperture 2:"
-                se(o, "text").text = "diameter = {0}*seeing = "\
+                se(o, "text").text = "&nbsp;&nbsp;&nbsp;&nbsp;Aperture 2:"
+                se(o, "text").text = "&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;diameter = {0}*seeing = "\
                     "{1:.2f} arcsecs or {2:.2f} pixels"\
                     .format(ap2, ap2*self.seeing, ap2*self.seeing / params['scale'])
-                se(o, "text").text = "Total counts in aperture: "\
+                se(o, "text").text = "&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Total counts in aperture: "\
                     "from object = {0:.1f}, from sky = {1:.1f}"\
                     .format(signal_obj[0][1], signal_sky[0][1])
 
-                se(o, "text").text = "S/N Estimates:"
-                se(o, "text").text = "Maximum S/N per pixel = {0:.1f}".format(ston[0][2])
-                se(o, "text").text = "Final S/N per 1.2*seeing aperture = {0:.1f}".format(ston[0][0])
-                se(o, "text").text = "Final S/N per 2.0*seeing aperture = {0:.1f}".format(ston[0][1])
+                se(o, "text").text = "&nbsp;&nbsp;&nbsp;&nbsp;S/N Estimates:"
+                se(o, "text").text = "&nbsp;&nbsp;&nbsp;&nbsp;Maximum S/N per pixel = {0:.1f}".format(ston[0][2])
+                se(o, "text").text = "&nbsp;&nbsp;&nbsp;&nbsp;Final S/N per 1.2*seeing aperture = {0:.1f}".format(ston[0][0])
+                se(o, "text").text = "&nbsp;&nbsp;&nbsp;&nbsp;Final S/N per 2.0*seeing aperture = {0:.1f}".format(ston[0][1])
 
             if satur:
-                se(o, "warning").text = "for time {0:.1f} s some pixels are saturated".format(self.texp[0])
+                se(o, "warning").text = "<font color=\"red\"><b>WARNING:For time {0:.1f} s some pixels are saturated</b></font>".format(self.texp[0])
 
         else:  # Range of texp
             if ff['operation']=='Spectroscopy':
                 if ff['template'] == 'Emission line':
                     tabletext += '\n\tFor the selected time range, the S/N per FWHM are:'
                 else:
-                    tabletext += '\n\tFor the selected time range, the S/N per res. element are:'
-                tabletext += '\n\t-----------------------------------------------------------'
-                tabletext += '\n\t    t(s)\tS/N(res_ele)\tSaturation?'
-                tabletext += '\n\t-----------------------------------------------------------'
+                    tabletext += '\n\tFor the selected time range, the S/N per pixel are:'
+                tabletext += '\n\t________________________________________'
+                tabletext += '\n\t    t(s)\tS/N(pp)\tSaturation?'
+                tabletext += '\n\t________________________________________'
+
+                for i in range(10):
+                        flags = 'No'
+                        if satur[i]:
+                            flags = 'Yes'
+                        tabletext += '\n\t{0:8.1f}\t{1:8.1f}\t'\
+                            .format(self.texp[i]*self.nobj, ston[i]) + flags
+
             else:  # Photometry
-                se(o, "text").text = "DETAILS OF S/N CALCULATIONS:"
+                se(o, "text").text = "&nbsp;&nbsp;&nbsp;&nbsp;S/N Calculations:"
                 ap1, ap2 = 1.2, 2.0
-                se(o, "text").text = "An example for {0:d} exposure(s) of {1:.1f} s: ".format(int(self.nobj), self.texp[0])
-                se(o, "text").text = "Per Pixel:"
-                se(o, "text").text = "Maximum object counts per pixel per second: "\
+                se(o, "text").text = "&nbsp;&nbsp;&nbsp;&nbsp;An example for {0:d} exposure(s) of {1:.1f} s: ".format(int(self.nobj), self.texp[0])
+                se(o, "text").text = "&nbsp;&nbsp;&nbsp;&nbsp;Per Pixel:"
+                se(o, "text").text = "&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Maximum object counts per pixel per second: "\
                     " = {0:.1f}".format(signal_obj[0][2])
-                se(o, "text").text = "Median sky counts per pixel per second: "\
+                se(o, "text").text = "&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Median sky counts per pixel per second: "\
                     " = {0:.1f}".format(signal_sky[0][2])
 
-                se(o, "text").text = "Per Aperture:"
-                se(o, "text").text = "Aperture 1:"
-                se(o, "text").text = "diameter = {0}*seeing = "\
+                se(o, "text").text = "&nbsp;&nbsp;&nbsp;&nbsp;Per Aperture:"
+                se(o, "text").text = "&nbsp;&nbsp;&nbsp;&nbsp;Aperture 1:"
+                se(o, "text").text = "&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;diameter = {0}*seeing = "\
                     "{1:.2f} arcsecs or {2:.2f} pixels"\
                     .format(ap1, ap1*self.seeing, ap1*self.seeing / params['scale'])
-                se(o, "text").text = "Total counts in aperture: "\
+                se(o, "text").text = "&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Total counts in aperture: "\
                     "from object = {0:.1f}, from sky = {1:.1f}"\
                     .format(signal_obj[0][0], signal_sky[0][0])
-                se(o, "text").text = "Aperture 2:"
-                se(o, "text").text = "diameter = {0}*seeing = "\
+                se(o, "text").text = "&nbsp;&nbsp;&nbsp;&nbsp;Aperture 2:"
+                se(o, "text").text = "&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;diameter = {0}*seeing = "\
                     "{1:.2f} arcsecs or {2:.2f} pixels"\
                     .format(ap2, ap2*self.seeing, ap2*self.seeing / params['scale'])
-                se(o, "text").text = "Total counts in aperture: "\
+                se(o, "text").text = "&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Total counts in aperture: "\
                     "from object = {0:.1f}, from sky = {1:.1f}"\
                     .format(signal_obj[0][1], signal_sky[0][1])
 
                 tabletext += '\n\tFor the selected time range, the S/N estimates are:'.format(1.2)
-                tabletext += '\n\t------------------------------------------------------------------------'
+                tabletext += '\n\t____________________________________________________________________________________'
                 tabletext += '\n\t    t (s)\t  S/N<sub>pp</sub>\t\tS/N<sub>1.2*FWHM</sub>\t S/N<sub>2.0*FWHM</sub>\tSaturation?'
-                tabletext += '\n\t------------------------------------------------------------------------'
+                tabletext += '\n\t____________________________________________________________________________________'
 
-            for i in range(0, 10):  # FGL 13jun
-                flags = 'No'
-                if satur[i]:
-                    flags = 'Yes'
-                tabletext += '\n\t{0:8.1f}\t{1:8.1f}\t{2:8.1f}\t{3:8.1f}\t'\
-                    .format(self.texp[i]*self.nobj, ston[i][2], ston[i][0], ston[i][1]) + flags
+                for i in range(10):
+                    flags = 'No'
+                    if satur[i]:
+                        flags = 'Yes'
+                    tabletext += '\n\t{0:8.1f}\t{1:8.1f}\t{2:8.1f}\t{3:8.1f}\t'\
+                        .format(self.texp[i]*self.nobj, ston[i][2], ston[i][0], ston[i][1]) + flags
 
         tabletext += "\n"
         se(o, "table").text = tabletext

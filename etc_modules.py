@@ -153,6 +153,7 @@ def getenoise(t_exp):
     # RAMP
     else:
         nreads = 5  # nreadlut(t_exp)
+    sf = 1.0
     return sf
 
 
@@ -166,7 +167,7 @@ def getnoise(image, t_exp):
     dc = np.ones_like(image)*np.sqrt(param['DC']*t_exp)
     shot = np.sqrt(image)
     noise = np.sqrt(ron**2 + dc**2 + shot**2)
-    enoise = noise / getenoise(t_exp)
+    enoise = noise * getenoise(t_exp)
     return enoise
 
 

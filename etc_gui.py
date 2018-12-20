@@ -11,9 +11,16 @@ a wrapper (also in python) to make the scripts usable online
 The underlying python script was written by Carlos Gonzalez-Fernandez
 (cambridge) and the wrapper was written by Matteo Miluzio (ESAC)
 
+v2.1.0 19-12-2018
+    Updated output for emission line in spec. mode
+
+v2.0.11 22-11-2018
+    Bug fix in spectroscopy counts per res. element calculation in display.
+    Added counts per pixel in display.
+    Updated description of getSpecSton.
+
 v2.0.10 22-10-2018
     Bug fix in spectroscopy range (split loops for spec. and phot. )
-
 
 v1.0.9 27-04-2018
     Fix bug to add a dependence on the input magnitude for 'Model file' when
@@ -78,7 +85,7 @@ import matplotlib.pylab as plt
 description = ">> Exposure Time Calculator for EMIR. Contact Lee Patrick"
 usage = "%prog [options]"
 
-version = '2.0.10'
+version = '2.1.0'
 
 if len(sys.argv) == 1:
     print(help)
@@ -190,7 +197,7 @@ class EmirGui:
                        loc=2)
             plt.xlabel('Exposure time (seconds)')
             if ff['source_type'] == 'Point':
-                plt.ylabel('S/N')
+                plt.ylabel('S/N per pixel')
             if ff['source_type'] == 'Extended':
                 plt.ylabel('S/N per pixel')
             # import pdb; pdb.set_trace()
@@ -282,7 +289,7 @@ class EmirGui:
                 saturated, params = self.getSpecSton(self.texp, self.nobj,
                                                      self.nsky)
             if ff['template'] == 'Emission line':
-                # np.argmax(ston) then get the signal from the pixels surrounding the max
+                # np.argmax(ston) then get the signal from pixels surrounding max
                 # idx_sn = np.argmax(ston)
                 # num_pix = np.int(np.round(self.res_ele/self.dpx))
                 # idx_res_ele = [np.arange(idx_sn - num_pix/2, idx_sn + num_pix/2, 1)]
@@ -290,10 +297,14 @@ class EmirGui:
                 # ston_resele = np.sum(ston_inresele)
 
                 # ston_resele = np.max(ston)*self.res_ele/self.dpx
-                self.printXML([np.max(src_cnts)],
-                              [np.median(sky_cnts[np.nonzero(sky_cnts)])],
-                              [np.max(ston)],
+                self.printXML([src_cnts],
+                              [sky_cnts[np.nonzero(sky_cnts)]],
+                              [ston],
                               saturated, **params)
+                # self.printXML([np.max(src_cnts)],
+                #               [np.median(sky_cnts[np.nonzero(sky_cnts)])],
+                #               [np.max(ston)],
+                #               saturated, **params)
             else:
                 # ston_resele = np.median(ston[np.nonzero(ston)])*self.res_ele/self.dpx
                 self.printXML([np.median(src_cnts[np.nonzero(src_cnts)])],
@@ -311,7 +322,7 @@ class EmirGui:
             plt.xlim(self.ldo_px[0], self.ldo_px[-1])
             plt.xlabel('Wavelength (micron)')
             if ff['source_type'] == 'Point':
-                plt.ylabel('S/N')
+                plt.ylabel('S/N per pixel')
             if ff['source_type'] == 'Extended':
                 plt.ylabel('S/N per pixel')
 
@@ -410,6 +421,29 @@ class EmirGui:
         4.- Interpolate SEDs over the observed wavelengths
 
         5.- Estimate the Signal to Noise (STON)
+
+        Arguments:
+            texp : float
+                Exposure time for calculation. Default: texp=1
+            nobj : int
+                Number of object exposures. Default: nobj=1
+            nsky : int
+                Number of sky exposures. Default: nsky=1
+
+        Returns:
+            ston_sp : float
+                Spectroscopy S/N calculation per pixel
+            obj_cnts : float
+                Object counts per pixel
+            sky_cnts : float
+                Sky counts per pixel
+            sp_0/sp_0.max() : float
+                Normalised input spectrum (for display purposes)
+            satur : int
+                Saturation parameter. 0=not saturated 1=saturated
+            params : dict
+                Fixed parameters of the optical system
+
         """
         params = con.get_params()
 
@@ -828,16 +862,45 @@ class EmirGui:
             se(o, "text").text = "&nbsp;&nbsp;&nbsp;&nbsp;For {0:d} exposure(s) of {1:.1f} s: ".format(int(self.nobj), self.texp[0])
             if ff['operation'] =='Spectroscopy':
                 if ff['template'] == 'Emission line':
-                    px_res_ele = max(1, np.sqrt(self.lwidth[0]/self.dpx))
-                    se(o, "text").text = "&nbsp;&nbsp;&nbsp;&nbsp;Maximum counts from object {0:.1f}, median from sky: {1:.1f}"\
-                        .format(signal_obj[0], signal_sky[0])
-                    se(o, "text").text = "&nbsp;&nbsp;&nbsp;&nbsp;Maximum S/N per FWHM = {0:.1f}".format(ston[0]*px_res_ele)
+                    px_line = max(1, np.round(self.lwidth[0]/self.dpx))
+                    px_slit = max(1, self.slitwidth/params['scale'])
+                    idx_peak = np.argmax(ston)
+                    idx_line = slice(idx_peak - int(px_line)//2, idx_peak + int(px_line)//2 + 1)
+                    # num_pix = np.int(np.round(self.res_ele/self.dpx))
+                    # idx_res_ele = [np.arange(idx_peak - num_pix/2, idx_peak + num_pix/2, 1)]
+                    # ston_inresele = ston[idx_res_ele] -- this step is the problem
+                    # ston_resele = np.sum(ston_inresele)
+                    # px = max(1, self.lwidth[0]/self.dpx)
+                    # px_res_ele = max(1, np.sqrt(self.lwidth[0]/self.dpx))
+                    se(o, "text").text = "&nbsp;&nbsp;&nbsp;&nbsp;Number of pixels within the line = {0:d}"\
+                        .format(int(px_line))
+                    se(o, "text").text = "&nbsp;&nbsp;&nbsp;&nbsp;Median counts per pixel (in line): object = {0:.1f}, sky = {1:.1f}"\
+                        .format(np.median(signal_obj[0][idx_line]),
+                                np.median(signal_sky[0][idx_line]))
+                    se(o, "text").text = "&nbsp;&nbsp;&nbsp;&nbsp;Peak counts in line: object = {0:.1f}, sky counts at peak = {1:.1f}"\
+                        .format(np.max(signal_obj), signal_sky[0][idx_peak])
+                    se(o, "text").text = "&nbsp;&nbsp;&nbsp;&nbsp;Total counts in line: object = {0:.1f}, sky = {1:.1f}"\
+                        .format(np.sum(signal_obj[0][idx_line]), np.sum(signal_sky[0][idx_line]))
+                    se(o, "text").text = "&nbsp;&nbsp;&nbsp;&nbsp;Peak S/N per pixel = {0:.1f}".format(np.max(ston[0]))
+                    se(o, "text").text = "&nbsp;&nbsp;&nbsp;&nbsp;Peak S/N per res. element = {0:.1f}".format(np.max(ston[0])*np.sqrt(px_slit))
+                    se(o, "text").text = "&nbsp;&nbsp;&nbsp;&nbsp;Median S/N per pixel = {0:.1f}".format(np.median(ston[0][idx_line]))
+                    se(o, "text").text = "&nbsp;&nbsp;&nbsp;&nbsp;Median S/N per res. element = {0:.1f}".format(np.median(ston[0][idx_line])*np.sqrt(px_slit))
+                    se(o, "text").text = "&nbsp;&nbsp;&nbsp;&nbsp;Total S/N in line = {0:.1f}".format(np.sqrt(np.sum(ston[0][idx_line]**2)))
+                    # se(o, "text").text = "&nbsp;&nbsp;&nbsp;&nbsp;Maximum S/N per FWHM = {0:.1f}".format(ston[0]*np.sqrt(px))
+# def printXML(self, signal_obj, signal_sky, ston, satur, **params):
+#                 self.printXML([np.max(src_cnts)],
+#                               [np.median(sky_cnts[np.nonzero(sky_cnts)])],
+#                               [np.max(ston)],
+#                               saturated, **params)
                 else:
-                    px_res_ele = max(1, np.sqrt(self.slitwidth/params['scale']))
-                    se(o, "text").text = "&nbsp;&nbsp;&nbsp;&nbsp;Median counts per res. element: from object = {0:.1f}, from sky = {1:.1f}"\
-                        .format(signal_obj[0]*px_res_ele, signal_sky[0]*px_res_ele)
-                    se(o, "text").text = "&nbsp;&nbsp;&nbsp;&nbsp;Median S/N per res. element = {0:.1f}".format(ston[0]*px_res_ele)
+                    px = max(1, self.slitwidth/params['scale'])
+                    # px_res_ele = max(1, np.sqrt(self.slitwidth/params['scale']))
+                    se(o, "text").text = "&nbsp;&nbsp;&nbsp;&nbsp;Median counts per pixel: object = {0:.1f}, sky = {1:.1f}"\
+                        .format(signal_obj[0], signal_sky[0])
+                    se(o, "text").text = "&nbsp;&nbsp;&nbsp;&nbsp;Median counts per res. element: object = {0:.1f}, sky = {1:.1f}"\
+                        .format(signal_obj[0]*px, signal_sky[0]*px)
                     se(o, "text").text = "&nbsp;&nbsp;&nbsp;&nbsp;Median S/N per pixel = {0:.1f}".format(ston[0])
+                    se(o, "text").text = "&nbsp;&nbsp;&nbsp;&nbsp;Median S/N per res. element = {0:.1f}".format(ston[0]*np.sqrt(px))
             else:  # Photometry
                 se(o, "text").text = "&nbsp;&nbsp;&nbsp;&nbsp;S/N Calculations:"
                 se(o, "text").text = "&nbsp;&nbsp;&nbsp;&nbsp;Per Pixel:"
@@ -854,14 +917,14 @@ class EmirGui:
                     "{1:.2f} arcsecs or {2:.2f} pixels"\
                     .format(ap1, ap1*self.seeing, ap1*self.seeing / params['scale'])
                 se(o, "text").text = "&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Total counts in aperture: "\
-                    "from object = {0:.1f}, from sky = {1:.1f}"\
+                    "object = {0:.1f}, sky = {1:.1f}"\
                     .format(signal_obj[0][0], signal_sky[0][0])
                 se(o, "text").text = "&nbsp;&nbsp;&nbsp;&nbsp;Aperture 2:"
                 se(o, "text").text = "&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;diameter = {0}*seeing = "\
                     "{1:.2f} arcsecs or {2:.2f} pixels"\
                     .format(ap2, ap2*self.seeing, ap2*self.seeing / params['scale'])
                 se(o, "text").text = "&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Total counts in aperture: "\
-                    "from object = {0:.1f}, from sky = {1:.1f}"\
+                    "object = {0:.1f}, sky = {1:.1f}"\
                     .format(signal_obj[0][1], signal_sky[0][1])
 
                 se(o, "text").text = "&nbsp;&nbsp;&nbsp;&nbsp;S/N Estimates:"
@@ -905,14 +968,14 @@ class EmirGui:
                     "{1:.2f} arcsecs or {2:.2f} pixels"\
                     .format(ap1, ap1*self.seeing, ap1*self.seeing / params['scale'])
                 se(o, "text").text = "&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Total counts in aperture: "\
-                    "from object = {0:.1f}, from sky = {1:.1f}"\
+                    "object = {0:.1f}, sky = {1:.1f}"\
                     .format(signal_obj[0][0], signal_sky[0][0])
                 se(o, "text").text = "&nbsp;&nbsp;&nbsp;&nbsp;Aperture 2:"
                 se(o, "text").text = "&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;diameter = {0}*seeing = "\
                     "{1:.2f} arcsecs or {2:.2f} pixels"\
                     .format(ap2, ap2*self.seeing, ap2*self.seeing / params['scale'])
                 se(o, "text").text = "&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Total counts in aperture: "\
-                    "from object = {0:.1f}, from sky = {1:.1f}"\
+                    "object = {0:.1f}, sky = {1:.1f}"\
                     .format(signal_obj[0][1], signal_sky[0][1])
 
                 tabletext += '\n\tFor the selected time range, the S/N estimates are:'.format(1.2)

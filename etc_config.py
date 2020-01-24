@@ -90,7 +90,7 @@ def get_filter(filt='Ks'):
         filter_file = 'filters/F123M_trans.dat'
 
     # Spectroscopic filters
-    elif (filt == 'Kspec'):
+    elif (filt == 'K'):
         filter_file = 'filters/K-spec_trans.dat'
     elif (filt == 'YJ'):
         filter_file = 'filters/YJ_smooth_trans.dat'
@@ -109,38 +109,47 @@ def get_grism(grism='K'):
     measured in commissioning (Nicolas lambda cal with sky lines)
     NB the safer way is to get 'res' from commissioning data,
     and adjust the number of pixels per resolution element where required.
+    
+    The new transmission curves are called "_scale". As of 23-01-2020 they
+    are not implemented
     """
     from etc_classes import SpecCurve
 
     if (grism == 'K'):
         grism_file = 'grisms/grism_k.dat'
-        filter_curve = get_filter('Kspec')
+        fname = 'K'
+        filter_curve = get_filter(fname)
         res = 4000.*1.067485  # up by 6.7485%
     elif (grism == 'H'):
         grism_file = 'grisms/grism_h.dat'
-        filter_curve = get_filter('H')
+        fname = 'H'
+        filter_curve = get_filter(fname)
         res = 4250.*1.052066  # up by 5.2%
     elif (grism == 'J'):
         grism_file = 'grisms/grism_j.dat'
-        filter_curve = get_filter('J')
+        fname = 'J'
+        filter_curve = get_filter(fname)
         res = 5000.*1.085924  # up by 8.5924%
 
     # Low Resolution Grisms:
 
     elif (grism == 'YJ'):
         grism_file = 'grisms/grism_yj.dat'
-        filter_curve = get_filter('YJ')
+        fname = 'YJ'
+        filter_curve = get_filter(fname)
         res = 987.
     elif (grism == 'HK'):
         grism_file = 'grisms/grism_hk.dat'
-        filter_curve = get_filter('HK')
+        fname = 'HK'
+        filter_curve = get_filter(fname)
         res = 987.
     # Simulated grisms:
     elif (grism == 'K_Y'):
         grism_file = 'grisms/grism_k_y.dat'
-        filter_curve = get_filter('Y')
+        fname = 'Y'
+        filter_curve = get_filter(fname)
         res = 4000.*1.067485  # Same as K
-    return res, SpecCurve(grism_file), filter_curve
+    return res, SpecCurve(grism_file), filter_curve, fname
 
 
 def get_skymag(filt, season):

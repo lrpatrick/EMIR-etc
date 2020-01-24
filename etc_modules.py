@@ -8,10 +8,13 @@ Author: LRP
 Date: 28-11-2016 and 12-12-2016
 """
 
-import numpy as np
-from etc_config import get_params
-from scipy.interpolate import InterpolatedUnivariateSpline as Inter
 import astropy.io.fits as pyfits
+import numpy as np
+import etc_config as con
+
+# from etc_config import con.get_params
+from scipy.interpolate import InterpolatedUnivariateSpline as Inter
+from scipy.special import erf
 
 
 def bbody(wvl, teff):
@@ -34,7 +37,7 @@ def bbody(wvl, teff):
 
 def checkforsaturation(data):
     """Check whether any element of the array is saturated"""
-    param = get_params()
+    param = con.get_params()
     return True if np.any(data >= param['well']) else False
 
 
@@ -161,19 +164,20 @@ def getnoise(image, t_exp):
     """
     Return the noise image to a given input,
     including RON, dark current and shot noise of the signal in image
+    RON scaled by np.sqrt(2)
     """
-    param = get_params()
-    ron = np.ones_like(image)*param['RON']
+    param = con.get_params()
+    ron = np.ones_like(image)*param['RON']*np.sqrt(2)
     dc = np.ones_like(image)*np.sqrt(param['DC']*t_exp)
     shot = np.sqrt(image)
     noise = np.sqrt(ron**2 + dc**2 + shot**2)
-    enoise = noise * getenoise(t_exp)
-    return enoise
+    # enoise = noise  * getenoise(t_exp)
+    return noise
 
 
 def getspread(flux=1., seeing=0.6, photo=0):
     """Spread the flux over seeing disc/profile"""
-    param = get_params()
+    param = con.get_params()
     sigma = seeing/2.354
     x_t = param['scale']*(np.arange(100) - 50)
 
@@ -278,30 +282,41 @@ def mag_convert(filt):
 
 
 # def reality_factor(filt):
-#     """Scale the final S/N with an empirically defined reality factor"""
+#     """
+#     FGL 13jun
+#     Scale the meas. counts with an empirically defined reality factor.
+#     """
 #     reality = {
 #         # Broad band filters:
-#         'Y': 1.0, 'J': 1.0, 'H': 1.0, 'Ks': 1.75,
+#         'Y': 0.21, 'J': 0.5, 'H': 0.9, 'Ks': 1.8,
 #         # Spectroscopic filters:
-#         "YJ": 1.0, "HK": 1.0, "K": 1.0,
+#         "YJ": 1.0, "HK": 1.0, "K": 1.8,
+#         # Narrow band filters inherit rf values from broad band filters
 #         # Narrow band filters:
-#         "FeII": 1.0, "FeII_cont": 1.0, "BrG": 1.0, "BrG_cont": 1.0,
-#         "H2(1-0)": 1.0, "H2(2-1)": 1.0,
+#         "FeII": 0.9, "FeII_cont": 0.9, "BrG": 1.8, "BrG_cont": 1.8,
+#         "H2(1-0)": 1.8, "H2(2-1)": 1.8,
 #         # Medium band filters:
-#         "F123M": 1.0}
+#         "F123M": 0.5}
 #     return reality[filt]
 
 
 def reality_factor(filt):
     """
-    FGL 13jun
-    Scale the meas. counts with an empirically defined reality factor.
+    LRP 20-11-2019 Updated reality_factor function to take into account the
+    measured transmission from FGL. The values in the old version of this
+    fucntion have been empirically scaled based on the results of the
+    transmission analysis listed in the MOS commissioning document (Nov 2019)
+    to match with what the ETC predicted previously 
+
     """
     reality = {
         # Broad band filters:
         'Y': 0.21, 'J': 0.5, 'H': 0.9, 'Ks': 1.8,
         # Spectroscopic filters:
         "YJ": 1.0, "HK": 1.0, "K": 1.0,
+        # LPR note 23-01-2020
+        # The below values for YJ are when we include the new transmissions
+        # "YJ": 1.1, "HK": 1.630, "K": 1.506,
         # Narrow band filters inherit rf values from broad band filters
         # Narrow band filters:
         "FeII": 0.9, "FeII_cont": 0.9, "BrG": 1.8, "BrG_cont": 1.8,
@@ -337,6 +352,43 @@ def slitpercent(seeing, slitwd):
     ys = ys/ys.sum()
     # px inside the slit
     ind = np.where(np.abs(xs) <= slitwd*0.5)[0]
+    perone = ys[ind].sum()
+    return perone
+
+
+def decentreloss(seeing, slitwd, dcen=1):
+    """
+    Calculate the flux lost due to the relation seeing/slit width.
+    This function is from a separate script "flujo_decen.py" by FGL
+    Default dcen value is 1px
+    """
+    # Get Pixel scale and convert dcen to arcseconds
+    params = con.get_params()
+    decen = dcen*params['scale']
+
+    cte = np.sqrt(np.log(2))
+    ff = slitwd/seeing
+    dc = 2*decen/seeing
+    rerf = (erf(cte*(dc + ff)) - erf(cte*(dc - ff)))/2
+    rerf0 = (erf(cte*ff) - erf(-cte*ff))/2
+    return rerf0, rerf
+
+
+def slitloss(seeing, slitwd, dcen=0.2):
+    """
+    Calculate the flux lost due to the relation seeing/slit width.
+    Seeing is always FWHM. 
+    Include the effects of decentering.
+    Default dcen value is 0.2" or ~1px
+    """
+    sigma = seeing/2.354
+    xs = np.arange(1000)/100. - 5
+    ys = np.exp(-0.5*(xs/sigma)**2)
+    ys = ys/ys.sum()
+    # px inside the slit
+    # Decentering offset (in arcsec)
+    # dcen = 0.2
+    ind = np.where(np.abs(xs + dcen) <= slitwd*0.5)[0]
     perone = ys[ind].sum()
     return perone
 

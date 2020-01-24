@@ -10,7 +10,6 @@ function mkstemp($template) {
     $PATTERN   = "XXXXXX";
   $letters   = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
   $length    = strlen($letters) - 1;
-
   if (mb_strlen($template) < strlen($PATTERN) || !strstr($template, $PATTERN))
     return FALSE;
 
@@ -55,7 +54,7 @@ function endsWith($haystack, $needle) {
                                "m4v", "m5v", "m6v",);
     $template_vals      =  array("Model library", "Black body", "Emission line", "Model file");
     $filter_vals        =  array("Y", "J", "H", "Ks",
-                                 "F123M", "FeII", "FeII_cont", "BrG", "BrG_cont", "H2(1-0)", "H2(2-1)"); // Y, F123M, H10, H21 Added by LRP 
+                                 "F123M", "FeII", "FeII_cont", "BrG", "BrG_cont", "H2(1-0)", "H2(2-1)"); // Y, F123M, H10, H21 Added by LRP
     $grism_vals         =  array("J", "H", "K", "YJ", "HK", "K_Y");
     $operation_vals     =  array("Photometry", "Spectroscopy");
 
@@ -82,7 +81,8 @@ function endsWith($haystack, $needle) {
         // Group 0
         'magnitude' => array('group' => 0, 'label' => 'Magnitude',
                              'type' => "Number", 'min' => '0', 'step' => '0.01',
-                             'value' => "0.0", 'unit' => "" ),
+                             'value' => "0.0", 'unit' => "",
+                             'info' => 'Magnitude of source in same filter that is requested. See output for details.'),
         'system' => array('group' => 0, 'label' => 'System',
                           'type' => "Radio", 'values' => $system_vals,
                           'value' => "Vega",  'unit' => "",
@@ -94,8 +94,9 @@ function endsWith($haystack, $needle) {
         'source_type' => array('group' => 0, 'label' => 'Source Type',
                                'type' => "Select", 'values' => $source_type_vals,
                                'value' => "Point",  'unit' => "",
-                               'info' => 'Point Source: the S/N will be estimated over the whole aperture (1.2*FWHM)<br />Extended source: all the derived S/N will be per pixel', 
-                               'onChange' => 'var new_unit = (this.value==\'Extended\') ? \'x10<sup>-16</sup> erg/s/cm<sup>2</sup>/arcsec<sup>2</sup>\' : \'x10<sup>-16</sup> erg/s/cm<sup>2</sup>\'; document.getElementById(\'unit_line_peakf\').innerHTML=new_unit;'),
+                               'info' => 'The way the S/N is calculated depends on the input here. For Extended, estimated S/N is per pixel only. ',
+                               'onChange' => 'var new_unit = (this.value==\'Extended\') ? \'x10<sup>-16</sup> erg/s/cm<sup>2</sup>/arcsec<sup>2</sup>\' : \'x10<sup>-16</sup> erg/s/cm<sup>2</sup>\'; document.getElementById(\'unit_line_peakf\').innerHTML=new_unit;',
+                               'dependID' => 'source_type'),
 
 
         // Group 1
@@ -110,7 +111,7 @@ function endsWith($haystack, $needle) {
                          'info' => 'You will choose one of the preloaded models form the Pickles Stellar Library',
                          'depend' => "template:$template_vals[0]"),
         'body_temp' => array('group' => 1, 'label' => 'B. Body temperature',
-                             'type' => "Number", 'value' => "10000", 
+                             'type' => "Number", 'value' => "10000",
                              'unit' => "K", 'min' => 0, 'step' => '0.01',
                              'depend' => "template:$template_vals[1]"),
         'line_center' => array('group' => 1, 'label' => 'Line center',
@@ -141,9 +142,9 @@ function endsWith($haystack, $needle) {
                            'min' => 1, 'max' => 2, 'step' => 0.01),
         'seeing' => array('group' => 2, 'label' => 'Seeing',
                           'type' => "Number", 'value' => "0.8",
-                          'unit' => "arcsec", 'min' => 0, 'step' => '0.01',
-                          'info' => "Astronomical seeing refers to the blurring and twinkling of astronomical objects such as stars caused by turbulences",
-                          'url' => 'https://en.wikipedia.org/wiki/Astronomical_seeing'),
+                          'unit' => "arcsec", 'min' => 0, 'step' => '0.01'),
+                          // 'info' => "Astronomical seeing refers to the blurring and twinkling of astronomical objects such as stars caused by turbulences",
+                          // 'url' => 'https://en.wikipedia.org/wiki/Astronomical_seeing'),
 
 
         // Group 3
@@ -152,49 +153,66 @@ function endsWith($haystack, $needle) {
                              'value' => "Photometry", 'unit' => "",
                              'dependID' => 'operation'),
         'photo_filter' => array('group' => 3, 'label' => 'Filter',
-                                'type' => "Radio",'values' => $filter_vals, 'value' => "Ks",
+                                'type' => "Select",'values' => $filter_vals, 'value' => "Ks",
                                 'unit' => "", 'depend' => "operation:$operation_vals[0]",
                                 'function' => "filterLineCenter"),
-        'photo_exp_time'  => array('group' => 3, 'label' => 'Exp. time', 
+        'photo_exp_time'  => array('group' => 3, 'label' => 'Exp. time',
                                    'type' => "Text", 'value' => "1-10",
                                    'unit' => "seconds",
                                    'info' => 'Single number: single calculation of the S/N for this time will be performed<br />Range: S/N will be calculated for the whole range',
                                    'depend' => "operation:$operation_vals[0]"),
-        'photo_nf_obj' => array('group' => 3, 'label' => '# frames: Object',
+        'photo_nf_obj' => array('group' => 3, 'label' => '# Exposures',
                                 'type' => "Text", 'value' => "1",'unit' => "",
-                                'info' => 'Number of on and off target images',
+                                'info' => 'Number of exposures. Point sources: number of object and sky frames are assumed to be equal. <br />Extended sources: provide both object and sky frames',
                                 'depend' => "operation:$operation_vals[0]",
                                 'nobr' => 1),
         'photo_nf_sky' => array('group' => 3, 'label' => 'Sky', 'type' => "Text",
                                 'value' => "1",    'unit' => "",
-                                'depend' => "operation:$operation_vals[0]"),
+                                'depend' => "operation:$operation_vals[0]",
+                                'dependtype' => "source_type:$source_type_vals[1]"),
         'spec_grism' => array('group' => 3, 'label' => 'Grism',
-                              'type' => "Radio", 'values' => $grism_vals,
+                              'type' => "Select", 'values' => $grism_vals,
                               'value' => "K", 'unit' => "",
                               'depend' => "operation:$operation_vals[1]",
+                              'dependtype' => "source_type:$source_type_vals[1]",
                               'function' => "filterLineCenter"),
         'spec_slit_width' => array('group' => 3, 'label' => 'Slit width',
                                    'type' => "Text", 'value' => "0.8",
+                                   'info' => 'The slit width will determine the final spectral resolution. Nominal values for 0.6 arcseconds',
                                    'unit' => "arcsec",
-                                   'depend' => "operation:$operation_vals[1]"),
+                                   'depend' => "operation:$operation_vals[1]",
+                                   'dependtype' => "source_type:$source_type_vals[1]"
+                               ),
         'spec_exp_time'   => array('group' => 3, 'label' => 'Exp. time',
                                    'type' => "Text", 'value' => "100",
                                    'unit' => "seconds",
                                    'info' => 'Single number: single calculation of the S/N for this time will be performed<br />Range: S/N will be calculated for the whole range',
                                    'depend' => "operation:$operation_vals[1]"),
-        'spec_nf_obj'  => array('group' => 3, 'label' => '# frames: Object',
-                                'type' => "Text", 'value' => "1", 'unit' => "",
-                                'info' => 'Number of on and off target images',
+        'spec_nf_obj'  => array('group' => 3, 'label' => '# Exposures',
+                                'type' => "Text", 'value' => "4", 'unit' => "",
+                                'info' => 'Number of exposures. Point sources: number of object and sky frames are assumed to be equal. <br />Extended sources: provide both object and sky frames',
                                 'depend' => "operation:$operation_vals[1]",
                                 'nobr' => 1),
-        'spec_nf_sky'  => array('group' => 3, 'label' => 'Sky', 'type' => "Text",
-                                'value' => "1", 'unit' => "",
-                                'depend' => "operation:$operation_vals[1]"),
+        'spec_nf_sky'  => array('group' => 3, 'label' => '# Sky Exposures', 'type' => "Text",
+                                'value' => "4", 'unit' => "",
+                                'depend' => "operation:$operation_vals[1]",
+                                'dependtype' => "source_type:$source_type_vals[1]"),
+        'decen' => array('group' => 3, 'label' => 'Decentering value',
+                           'type' => "Text", 'value' => "1.0", 'unit' => "pixels",
+                           'info' => 'Decentering of the source in the slit. Between 0 and 2. Default value of 1 is realistic for astrometry on the 0.2 arcsec precision. For Gaia use 0.0',
+                           'min' => 0, 'step' => 0.1,
+                           'depend' => "operation:$operation_vals[1]",
+                           'dependtype' => "source_type:$source_type_vals[1]"
+                         ),
+        // 'nf_sky'  => array('group' => 3, 'label' => '# Sky Exposures', 'type' => "Text",
+        //                         'value' => "4", 'unit' => "",
+        //                         'depend' => "source_type:$source_type_vals[1]"),
+                                // 'depend' => "operation:$operation_vals[1]"),
+                                // 'depend' => "source_type:$source_type_vals[1]"),
         'submit'  => array('group' => 3, 'label' => 'Calculate',
                            'type' => "Submit", 'value' => "Calculate",
                            "unit" => ""),
     );
-
 
     // GROUPS fOR FIELDSETs
     $GROUPS= array("source_config" => "Source configuration", "spectral_template" => "Spectral template",
@@ -236,6 +254,7 @@ function endsWith($haystack, $needle) {
     $xml = new SimpleXMLElement('<?xml version="1.0" encoding="utf-8"?><data_etc></data_etc>');
     $next_short = false;
     $depend = "";
+    $dependtype = "";
 
 
     if (!($fname = mkstemp(DATA_DIR."/emir-XXXXXX.xml"))) {
@@ -274,6 +293,17 @@ function endsWith($haystack, $needle) {
                 $depend_data = explode(':', $field['depend']);
                 echo "\n\n  <!-- Opening $depend -->\n  <div id=\"$depend\" class=\"hide\" data-group=\"$depend_data[0]\" data-value=\"$depend_data[1]\">\n";
             }
+            // if (isset($field['dependtype'])) {
+            //     if ($dependtype != $field['dependtype']) {
+            //         $dependtype = $field['dependtype'];
+            //         $dependtype_data = explode(':', $field['dependtype']);
+            //         echo "\n\n  <!-- Opening $dependtype -->\n  <div id=\"$dependtype\" class=\"hide\" data-group=\"$dependtype_data[0]\" data-value=\"$dependtype_data[1]\">\n";
+            //     }
+            // }
+            // elseif ($dependtype != "") {
+            //     echo "</div> <!-- Closing2 $dependtype -->\n";
+            //     $dependtype = "";
+            // }
         }
         elseif ($depend != "") {
             echo "</div> <!-- Closing2 $depend -->\n";
@@ -482,6 +512,24 @@ function endsWith($haystack, $needle) {
     ?>
     </div>
 <script>$("[title]").tooltip();
+/* Este codigo oculta los campos photo_nf_sky y spec_nf_sky
+   en el formulario cuando la fuente es Point. Idealmente debería
+   hacerse durante la creacion de formulario con PHP (bloque de dependencias) 
+
+ */
+$(document).ready(function(){
+    $('#source_type').bind('change', function () {
+         var source_type = $(this).val();
+         if (source_type == "<?=$source_type_vals[0]?>") {
+             $("#photo_nf_sky").parent().hide();
+             $("#spec_nf_sky").parent().hide();
+         } else {
+             $("#photo_nf_sky").parent().show();
+             $("#spec_nf_sky").parent().show();
+         }
+    });
+    $('#source_type').trigger('change');
+});
 
 <?php
     // Set value for bound fields
@@ -497,4 +545,3 @@ function endsWith($haystack, $needle) {
 
 ?>
 </script>
-

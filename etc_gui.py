@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 """
 Created:
-Author: ???
+Author: ???, maintained by LRP
 Date: ???
 Description: (LRP)
 EMIR ETC python main script. These routines consists of an underlying python
@@ -10,6 +10,12 @@ a wrapper (also in python) to make the scripts usable online
 
 The underlying python script was written by Carlos Gonzalez-Fernandez
 (cambridge) and the wrapper was written by Matteo Miluzio (ESAC)
+
+v2.1.3 24-01-2020
+    Added and updated decentering factor to include suggestions from FGL 
+    Updated the php files
+    Bug Fixed: Photometry in Extended mode failed as n_obj_counts and
+               n_sky_counts were not defined
 
 v2.1.2 07-05-2019
     Added sky noise and object noise to the output
@@ -87,33 +93,20 @@ import etc_modules as mod
 from etc_classes import SpecCurve
 
 import matplotlib
-matplotlib.use('Agg')  # Do we actually need agg?
+matplotlib.use('Agg')
 import matplotlib.pylab as plt
 
-description = ">> Exposure Time Calculator for EMIR. Contact Lee Patrick"
-usage = "%prog [options]"
 
-version = '2.1.2'
-
-if len(sys.argv) == 1:
-    print(help)
-    sys.exit()
-parser = OptionParser(usage=usage, description=description)
-parser.add_option("-d", "--directory", dest="directory",
-                  default='', help='Path of the xml file \n  [%default]')
-option, args = parser.parse_args()
-
-
-class EmirGui:
+class EmirGui(object):
     """GUI for the ETC"""
 
     def __init__(self):
         """Initialise"""
+        self.version = '2.1.3'
         # When the application is loaded, all the fixed elements of the system
         # (optics, etc.) plus the sky curves are loaded
         global ff
         config_files = con.get_config()
-        # Changed to 80000 by LRP on 04-04-2017
         self.ldo_hr = (8000 + np.arange(100001)*0.2)*1e-4
 
         # Fixed elements of the system
@@ -122,12 +115,10 @@ class EmirGui:
         optics = SpecCurve(config_files['optics'])
         tel = SpecCurve(config_files['telescope'])
 
-        # Addition from MCB's ETC by LRP
         self.qe_hr = qe.interpolate(self.ldo_hr)
         self.optics_hr = optics.interpolate(self.ldo_hr)
         self.tel_hr = tel.interpolate(self.ldo_hr)
         self.tel_trans = self.qe_hr*self.optics_hr*self.tel_hr
-        # End addition
 
         try:
             ff = emir_guy.readxml(args[0] + '.xml')
@@ -135,7 +126,8 @@ class EmirGui:
             print("ERROR opening XML file")
             exit()
 
-        emir_guy.load(self)
+        self.available, modelorder = con.get_models()
+
         emir_guy.check_inputs(ff, args[0])
 
         # Vega spectrum for normalizations
@@ -154,7 +146,6 @@ class EmirGui:
         # Convert magnidutes into Vega system (if appropriate)
         if ff['system'] == 'AB':
             conv_ab = mod.mag_convert(ff['photo_filter'])
-            # conv_ab = 0.1
             ff['magnitude'] = float(ff['magnitude']) - conv_ab
 
         # Obtaining configuration parameters from GUI
@@ -179,7 +170,13 @@ class EmirGui:
 
         # Number of frames
         self.nobj = float(ff['photo_nf_obj'])
-        self.nsky = float(ff['photo_nf_sky'])
+        # self.nsky = float(ff['photo_nf_sky'])
+        if ff['source_type'] == 'Point':
+            self.nsky = np.copy(self.nobj)
+        else:
+            self.nsky = float(ff['photo_nf_sky'])
+            # self.nsky = float(ff['nf_sky'])
+
 
         # Filter transmission curve
         self.filt = con.get_filter(self.filtname)
@@ -191,15 +188,14 @@ class EmirGui:
 
         # Calling the function that calculates the STON
         ston, signal_obj, signal_sky, n_counts, n_sky_counts, n_obj_counts, saturated,\
-            params, fl_obj, fl_sky = self.getPhotSton(self.texp,
-                                                      self.nobj,
-                                                      self.nsky)
+            params, fl_obj, fl_sky = self.getPhotSton(self.texp)
 
         if self.timerange == 'Range':
             # self.printResults(self.texp,ston,saturated)
             self.printXML(signal_obj, signal_sky,
                           ston, n_counts, n_sky_counts, n_obj_counts,
                           saturated, **params)
+            plt.figure()
             lineObjects = plt.plot(self.texp*self.nobj, ston)
             plt.legend(iter(lineObjects),
                        ('1.2*seeing', '2.0*seeing', 'Per pixel'),
@@ -210,20 +206,17 @@ class EmirGui:
             if ff['source_type'] == 'Extended':
                 plt.ylabel('S/N per pixel')
             # import pdb; pdb.set_trace()
-
+            # plt.savefig(args[0] + '_fig.png')
             plt.savefig(args[0] + '_fig.png')
-        else:
-            self.printXML(signal_obj, signal_sky,
-                          ston, n_counts, n_sky_counts, n_obj_counts, saturated, **params)
+            plt.close()
+
+        else:  # Single Frame
+            self.printXML(signal_obj, signal_sky, ston,
+                          n_counts, n_sky_counts, n_obj_counts, saturated, **params)
             # TODO: Create some meaniningful graphic output!
             # Create some figures:
-            plt.figure(1, figsize=(15., 10.))
-            # plt.subplot(321)
-            # plt.plot(self.ldo_hr, fl_obj, color='b', label='Obj. spectrum')
-            # plt.xlim(self.ldo_hr[0], self.ldo_hr[-1])
-            # plt.xlabel('Wavelength (micron)')
-            # plt.ylabel('Souce counts ADU/pixel')
-            plt.subplot(322)
+            plt.figure(1, figsize=(12., 8.))
+            plt.title('Efficiency Curves')
             plt.plot(self.ldo_hr, self.qe_hr, '-r', label='Det')
             plt.plot(self.ldo_hr, self.filt_hr, '-c', label='Filter')
             plt.plot(self.ldo_hr, self.optics_hr, '-b', label='Optics')
@@ -233,17 +226,83 @@ class EmirGui:
             plt.legend(bbox_to_anchor=(1.3, 1.05))
             plt.xlabel('Wavelength (micron)')
             plt.ylabel('efficiency / band')
-            # plt.subplot(323)
-            # plt.plot(self.ldo_hr, fl_sky, color='r', label='Sky spectrum')
-            # plt.xlim(self.ldo_hr[0], self.ldo_hr[-1])
-            # plt.xlabel('Wavelength (micron)')
-            # plt.ylabel('Sky counts ADU/pixel')
-            # plt.subplot(324)
-            # plt.plot(self.ldo_hr, self.sky_e, color='r', label='Sky spectrum')
-            # plt.xlim(self.ldo_hr[0], self.ldo_hr[-1])
-            # plt.xlabel('Wavelength (micron)')
-            # plt.ylabel('Sky counts ADU/pixel')
-            plt.savefig(args[0] + '_photo.png')
+            plt.savefig(args[0] + '_fig.png')
+            plt.close()
+        return
+
+    def getSpecFigs(self, ston, src_cnts, sky_cnts, sp):
+        """
+        Generate the Figures for the case of single frame, point source in
+        spec mode
+    
+        Arguments: 
+            self : class
+                Underlying class
+            ston : numpy.ndarray
+                S/N spectrum
+            src_cnts : numpy.ndarray
+                Source counts spectrum
+            sku_cnts : numpy.ndarray
+                Sky counts spectrum
+            sp : numpy.ndarray
+
+        Returns: 
+            Nothing returned. Figures created but not saved.
+        """
+        plt.figure(1, figsize=(15., 10.))
+        plt.subplot(321)
+        plt.plot(self.ldo_px, ston, color='b')
+        med_spec = np.median(ston[np.nonzero(ston)])
+        x_med = np.linspace(self.ldo_px[0], self.ldo_px[-1])
+        plt.plot(x_med, np.linspace(med_spec, med_spec), color='r')
+        plt.xlim(self.ldo_px[0], self.ldo_px[-1])
+        if ff['source_type'] == 'Point':
+            plt.ylabel('S/N per pixel')
+        if ff['source_type'] == 'Extended':
+            plt.ylabel('S/N per pixel')
+
+        plt.subplot(323)
+        plt.plot(self.ldo_px, src_cnts)
+        plt.plot(self.ldo_px, sky_cnts)
+        plt.xlim(self.ldo_px[0], self.ldo_px[-1])
+        plt.ylabel('Source ADU/pixel')
+
+        plt.subplot(325)
+        plt.plot(self.ldo_px, sp)
+        plt.xlim(self.ldo_px[0], self.ldo_px[-1])
+        plt.xlabel('Wavelength (micron)')
+        plt.ylabel('Normalized src flux')
+
+        plt.subplot(322)
+        plt.title('Efficiency Curves')
+        plt.plot(self.ldo_hr, self.qe_hr, '-r', label='Det')
+        plt.plot(self.ldo_hr, self.grism_hr, '--c', label='Grism')
+        plt.plot(self.ldo_hr, self.filt_hr, '-c', label='Filter')
+        plt.plot(self.ldo_hr, self.optics_hr, '-b', label='Optics')
+        plt.plot(self.ldo_hr, self.tel_hr, '--b', label='Tel')
+        plt.plot(self.ldo_hr, self.efftotal_hr, '-k', label='Qtot')
+        plt.xlim(self.ldo_px[0], self.ldo_px[-1])
+        plt.legend(bbox_to_anchor=(1.3, 1.05))
+        plt.ylabel('efficiency / band')
+
+        plt.subplot(324)
+        plt.plot(self.ldo_hr, self.efftotal_hr, '-k', label='Qtot')
+        plt.xlim(self.ldo_px[0], self.ldo_px[-1])
+        plt.legend(bbox_to_anchor=(1.3, 1.05))
+        plt.ylabel('Eff Tel to Det')
+
+        plt.subplot(326)
+        plt.plot(self.ldo_hr, self.qe_hr, '-r', label='Det')
+        plt.plot(self.ldo_hr, self.grism_hr, '--c', label='Grism')
+        plt.plot(self.ldo_hr, self.filt_hr, '-c', label='Filter')
+        plt.plot(self.ldo_hr, self.optics_hr, '-b', label='Optics')
+        plt.plot(self.ldo_hr, self.tel_hr, '--b', label='Tel')
+        plt.plot(self.ldo_hr, self.efftotal_hr, '-k', label='Qtot')
+        plt.xlim(0.8, 2.9)
+        plt.legend(bbox_to_anchor=(1.3, 1.05))
+        plt.xlabel('Wavelength (micron)')
+        plt.ylabel('Efficiency full EMIR range')
+        return 
 
     def doSpectroscopy(self):
         """Spectroscopy initialisations"""
@@ -259,7 +318,10 @@ class EmirGui:
         self.seeing = float(ff['seeing'])
         self.airmass = float(ff['airmass'])
         self.slitwidth = float(ff['spec_slit_width'])
-        self.sloss = mod.slitpercent(self.seeing, self.slitwidth)
+        self.dcen_in = float(ff['decen'])
+        # self.sloss = mod.slitpercent(self.seeing, self.slitwidth)
+        self.sloss, self.sdcen = mod.decentreloss(self.seeing, self.slitwidth, self.dcen_in)
+        # self.sdcen = mod.slitloss(self.seeing, self.slitwidth, 0.2)
 
         self.sky_t, self.sky_e = mod.interpolatesky(self.airmass, self.ldo_hr)
         self.buildObj()
@@ -278,11 +340,18 @@ class EmirGui:
 
         # Number of frames
         self.nobj = float(ff['spec_nf_obj'])
-        self.nsky = float(ff['spec_nf_sky'])
+        # self.nsky = float(ff['spec_nf_sky'])
+
+        if ff['source_type'] == 'Point':
+            self.nsky = np.copy(self.nobj)
+        else:
+            # self.nsky = float(ff['nf_sky'])
+            self.nsky = float(ff['spec_nf_sky'])
+
 
         # The filter transmission curve
         #
-        self.specres, self.grism, self.filt = con.get_grism(self.grismname)
+        self.specres, self.grism, self.filt, self.filtname = con.get_grism(self.grismname)
         self.filt_hr = self.filt.interpolate(self.ldo_hr)
         self.grism_hr = self.grism.interpolate(self.ldo_hr)
         self.disp_trans = self.filt_hr*self.grism_hr
@@ -290,20 +359,19 @@ class EmirGui:
         self.efftotal_hr = self.tel_hr*self.optics_hr*self.filt_hr*\
             self.grism_hr*self.qe_hr
         #
-        #    Calling the function that calculates the STON
+        #    Calling the function that calculates the SNR
         #
 
         if self.timerange == 'Single':
             ston, src_cnts, sky_cnts, sp, noise, noise_sky, noise_spec,\
-                saturated, params = self.getSpecSton(self.texp, self.nobj,
-                                                     self.nsky)
+                saturated, params = self.getSpecSton(self.texp)
             if ff['template'] == 'Emission line':
                 # np.argmax(ston) then get the signal from pixels surrounding max
                 idx_sn = np.argmax(src_cnts)
                 num_pix = np.int(np.round(self.lwidth[0]/self.dpx))
                 num_pix_efe= np.int(np.round(num_pix))
-                px_ini= idx_sn - num_pix_efe
-                px_end= idx_sn + num_pix_efe + 1
+                px_ini = idx_sn - num_pix_efe
+                px_end = idx_sn + num_pix_efe + 1
                 # idx_res_ele = [np.arange(idx_sn - num_pix/2, idx_sn + num_pix/2, 1)]
                 # ston_inresele = ston[idx_res_ele] -- this step is the problem
                 # ston_resele = np.sum(ston_inresele)
@@ -327,62 +395,7 @@ class EmirGui:
                               saturated, **params)
 
             # Create some figures:
-            plt.figure(1, figsize=(15., 10.))
-            plt.subplot(321)
-            plt.plot(self.ldo_px, ston, color='b')
-            med_spec = np.median(ston[np.nonzero(ston)])
-            x_med = np.linspace(self.ldo_px[0], self.ldo_px[-1])
-            plt.plot(x_med, np.linspace(med_spec, med_spec), color='r')
-            plt.xlim(self.ldo_px[0], self.ldo_px[-1])
-            plt.xlabel('Wavelength (micron)')
-            if ff['source_type'] == 'Point':
-                plt.ylabel('S/N per pixel')
-            if ff['source_type'] == 'Extended':
-                plt.ylabel('S/N per pixel')
-
-            plt.subplot(323)
-            plt.plot(self.ldo_px, src_cnts)
-            plt.plot(self.ldo_px, sky_cnts)
-            plt.xlim(self.ldo_px[0], self.ldo_px[-1])
-            plt.xlabel('Wavelength (micron)')
-            plt.ylabel('Source ADU/pixel')
-
-            plt.subplot(325)
-            plt.plot(self.ldo_px, sp)
-            plt.xlim(self.ldo_px[0], self.ldo_px[-1])
-            plt.xlabel('Wavelength (micron)')
-            plt.ylabel('Normalized src flux')
-
-            plt.subplot(322)
-            plt.plot(self.ldo_hr, self.qe_hr, '-r', label='Det')
-            plt.plot(self.ldo_hr, self.grism_hr, '--c', label='Grism')
-            plt.plot(self.ldo_hr, self.filt_hr, '-c', label='Filter')
-            plt.plot(self.ldo_hr, self.optics_hr, '-b', label='Optics')
-            plt.plot(self.ldo_hr, self.tel_hr, '--b', label='Tel')
-            plt.plot(self.ldo_hr, self.efftotal_hr, '-k', label='Qtot')
-            plt.xlim(self.ldo_px[0], self.ldo_px[-1])
-            plt.legend(bbox_to_anchor=(1.3, 1.05))
-            plt.xlabel('Wavelength (micron)')
-            plt.ylabel('efficiency / band')
-
-            plt.subplot(324)
-            plt.plot(self.ldo_hr, self.efftotal_hr, '-k', label='Qtot')
-            plt.xlim(self.ldo_px[0], self.ldo_px[-1])
-            plt.legend(bbox_to_anchor=(1.3, 1.05))
-            plt.xlabel('Wavelength (micron)')
-            plt.ylabel('Eff Tel to Det')
-
-            plt.subplot(326)
-            plt.plot(self.ldo_hr, self.qe_hr, '-r', label='Det')
-            plt.plot(self.ldo_hr, self.grism_hr, '--c', label='Grism')
-            plt.plot(self.ldo_hr, self.filt_hr, '-c', label='Filter')
-            plt.plot(self.ldo_hr, self.optics_hr, '-b', label='Optics')
-            plt.plot(self.ldo_hr, self.tel_hr, '--b', label='Tel')
-            plt.plot(self.ldo_hr, self.efftotal_hr, '-k', label='Qtot')
-            plt.legend(bbox_to_anchor=(1.3, 1.05))
-            plt.xlabel('Wavelength (micron)')
-            plt.ylabel('Efficiency full EMIR range')
-            # End of figures
+            self.getSpecFigs(ston, src_cnts, sky_cnts, sp)
 
         if self.timerange == 'Range':
 
@@ -395,8 +408,7 @@ class EmirGui:
             # noise_spec = np.zeros_like(self.texp)
             for i in range(len(self.texp)):
                 temp, src_cnts, sky_cnts, sp, inoise, inoise_sky, inoise_spec,\
-                    satur, params = self.getSpecSton(self.texp[i],
-                                                     self.nobj, self.nsky)
+                    satur, params = self.getSpecSton(self.texp[i])
                 ston[i] = np.median(temp[np.nonzero(temp)])
                 saturated[i] = satur
                 src_med_cnts[i] = np.median(src_cnts[np.nonzero(src_cnts)])
@@ -415,32 +427,16 @@ class EmirGui:
             self.printXML(src_med_cnts, sky_med_cnts, ston,
                           noise, noise_sky, noise_spec,
                           saturated, **params)
-            # self.printXML(src_cnts,sky_cnts,ston,saturated,params)
 
-            # temp, src_cnts, sky_cnts, sp, temp2, params\
-            #    = self.getSpecSton(self.texp[i], self.nobj, self.nsky)
-            # Additional figure for an inputed range of exposure times
-            plt.figure(1)
-            plt.subplot(211)
-            plt.plot(self.ldo_px, temp)
-            plt.xlabel('Wavelength (micron)')
-            if ff['source_type'] == 'Point':
-                plt.ylabel('S/N at texp = {0:.1f}'.format(self.texp[-1]))
-            if ff['source_type'] == 'Extended':
-                plt.ylabel('S/N per pixel at texp = {0:.1f}'
-                           .format(self.texp[-1]))
+            self.getSpecFigs(temp, src_cnts, sky_cnts, sp)
 
-            plt.subplot(212)
-            plt.plot(self.ldo_px, sp)
-            plt.xlabel('Wavelength (micron)')
-            plt.ylabel('Normalized src flux')
-        plt.savefig(args[0]+'_fig.png')
-
+        # Save figures (both single and range)
+        plt.savefig(args[0] + '_fig.png')
         return 
 
-    def getSpecSton(self, texp=1, nobj=1, nsky=1):
+    def getSpecSton(self, texp=1):
         """
-        For Spectroscopy Get SignaltoNoise (Ston):
+        For Spectroscopy Get SignaltoNoise (StoN):
         1.- Calculate the wavelengths visible in the detector
 
         2.- Scale object & sky with Vega. Note: the per angstrom dependence
@@ -457,10 +453,6 @@ class EmirGui:
         Arguments:
             texp : float
                 Exposure time for calculation. Default: texp=1
-            nobj : int
-                Number of object exposures. Default: nobj=1
-            nsky : int
-                Number of sky exposures. Default: nsky=1
 
         Returns:
             ston_sp : float
@@ -488,6 +480,9 @@ class EmirGui:
         self.res_ele = self.dpx*(self.slitwidth/(params['scale']))
         self.ldo_px = (np.arange(2048) - 1024)*self.dpx + self.cenwl
 
+        # Implement the reality factor
+        # rfact = mod.reality_factor(self.filtname)
+        
         # CGF 02/12/16
         # if ff['template'] == 'Emission line':
         #    no = self.obj*params['area']
@@ -548,36 +543,41 @@ class EmirGui:
         # 4. Interpolate over observed wavelengths (sky)
         sp_sky = self.dpx*mod.spec_int(self.ldo_hr,
                                        sp_sky_con*params['scale']**2,
-                                       self.ldo_px)
+                                       self.ldo_px) # / rfact LRP removed rfact 23-01-2020
         # 3. Convolve with input resolution (object)
         # Object spectrum scaled by the configuration and transmission
-        sp_obj_config = no*(texp*self.sloss)*\
+        # sp_obj_config = no*(texp*self.sloss)*\
+        sp_obj_config = no*(texp*self.sdcen)*\
                            (self.disp_trans*self.tel_trans*self.sky_t)
         sp_obj_con = mod.convolres(self.ldo_hr, sp_obj_config, self.res_ele)
 
+        if self.nsky == 0:
+            self.nsky = 1
+
+        #     nsky_t = 1
+        # else:
+        #     nsky_t = nsky
+
         if ff['source_type'] == 'Point':
             # 4. Interpolate over observed wavelengths (object)
-            sp_obj = self.dpx*mod.spec_int(self.ldo_hr, sp_obj_con, self.ldo_px)
+            sp_obj = self.dpx*mod.spec_int(self.ldo_hr, sp_obj_con, self.ldo_px) # / rfact LRP removed rfact 23-01-2020
+            # Initialise
             im_spec = np.zeros((len(sp_obj), 100))
             im_sky = np.zeros((len(sp_obj), 100))
-            total_noise = np.zeros((len(sp_obj), 100))
             sky_noise = np.zeros((len(sp_obj), 100))
             spec_noise = np.zeros((len(sp_obj), 100))
+            total_noise = np.zeros((len(sp_obj), 100))
 
             # No sky frame implies that reduction is as good
             # as taking one single sky frame
-
-            if nsky == 0:
-                nsky_t = 1
-            else:
-                nsky_t = nsky
 
             for i in range(len(sp_obj)):
                 im_spec[i] = mod.getspread(sp_obj[i], self.seeing, 0) + sp_sky[i]
                 im_sky[i] = sp_sky[i]
 
-                sky_noise[i] = mod.getnoise(im_sky[i], texp)/np.sqrt(nsky_t)
-                spec_noise[i] = mod.getnoise(im_spec[i], texp)/np.sqrt(nobj)
+                # sky_noise[i] = mod.getnoise(im_sky[i], texp)/np.sqrt(nsky_t)
+                spec_noise[i] = mod.getnoise(im_spec[i], texp)/np.sqrt(self.nobj)
+                sky_noise[i] = mod.getnoise(im_sky[i], texp)/np.sqrt(self.nsky)
                 total_noise[i] = np.sqrt(spec_noise[i]**2 + sky_noise[i]**2)
 
             r = np.abs(np.arange(100) - 50)
@@ -590,7 +590,8 @@ class EmirGui:
             satur = mod.checkforsaturation(im_spec[:, ind])
 
             # Calculate original spectrum for display and the output XML
-            con_0 = mod.convolres(self.ldo_hr, self.sloss*texp*no, self.dpx)
+            # con_0 = mod.convolres(self.ldo_hr, self.sloss*texp*no, self.dpx)
+            con_0 = mod.convolres(self.ldo_hr, self.sdcen*texp*no, self.dpx)
             sp_0 = mod.spec_int(self.ldo_hr, con_0, self.ldo_px)*self.dpx
             obj_cnts = (im_spec - im_sky)[:, ind].sum(axis=1)/params['gain']
             # Add the sum over the spec_noise and sky_noise to the output
@@ -603,8 +604,8 @@ class EmirGui:
             sp_obj = self.dpx*mod.spec_int(self.ldo_hr,
                                            sp_obj_con*params['scale']**2,
                                            self.ldo_px)
-            spec_noise = mod.getnoise(sp_obj + sp_sky, texp)/np.sqrt(nobj)
-            sky_noise = mod.getnoise(sp_sky, texp)/np.sqrt(nsky)
+            spec_noise = mod.getnoise(sp_obj + sp_sky, texp)/np.sqrt(self.nobj)
+            sky_noise = mod.getnoise(sp_sky, texp)/np.sqrt(self.nsky)
             total_noise = np.sqrt(spec_noise**2 + sky_noise**2)
 
             satur = mod.checkforsaturation(sp_obj + sp_sky)
@@ -612,7 +613,8 @@ class EmirGui:
             # 5. S/N calculation signal-to-noise
             ston_sp = sp_obj/total_noise
             # Calculate original spectrum for display and the output XML
-            con_0 = mod.convolres(self.ldo_hr, self.sloss*texp*no, self.dpx)
+            con_0 = mod.convolres(self.ldo_hr, self.sdcen*texp*no, self.dpx)
+            # con_0 = mod.convolres(self.ldo_hr, self.sloss*texp*no, self.dpx)
             sp_0 = self.dpx*mod.spec_int(self.ldo_hr, con_0*params['scale']**2,
                                          self.ldo_px)
             obj_cnts = sp_obj/params['gain']
@@ -625,7 +627,7 @@ class EmirGui:
 
         return ston_sp, obj_cnts, sky_cnts, sp_0/sp_0.max(), n_counts, n_sky_counts, n_spec_counts, satur, params
 
-    def getPhotSton(self, texp=1, nobj=1, nsky=1):
+    def getPhotSton(self, texp=1):
         """
         For Photometry Get SignaltoNoise (Ston):
         1.- Scale object & sky with Vega
@@ -640,6 +642,8 @@ class EmirGui:
         self.mag_sky = con.get_skymag(self.filtname, ff['season'])
         # ston = np.zeros_like(texp)
         satur = np.zeros_like(texp)
+        # Implement the reality factor
+        rfact = mod.reality_factor(self.filtname)
         # Added by LRP from MBC's ETC
         ston = np.zeros((np.shape(texp)[0], 3))
         signal_obj = np.zeros((np.shape(texp)[0], 3))
@@ -669,8 +673,8 @@ class EmirGui:
         #  The filter appears here and in step 1 because there is used
         #  to calculate the flux under it in order to normalize the
         #  spectra with Vega. Here is used to calculate total fluxes.
-        sp_obj = no*self.filt_hr*self.tel_trans*self.sky_t
-        sp_sky = ns*self.filt_hr*self.tel_trans
+        sp_obj = no*self.filt_hr*self.tel_trans*self.sky_t / rfact
+        sp_sky = ns*self.filt_hr*self.tel_trans / rfact
 
         fl_obj = texp*sp_obj.sum()
         fl_sky = texp*sp_sky.sum()*params['scale']**2
@@ -679,8 +683,14 @@ class EmirGui:
         # to properly account for the effect of the RON and sky.
         # In the case of extended sources, the estimated values are per pixel
 
-        # Implement the reality factor
-        rfact = mod.reality_factor(self.filtname)
+        # Ensure nsky can't be zero
+        # For no sky frames is assumed that the reduction
+        # is as good as taking a single sky frame.
+        if self.nsky == 0:
+            self.nsky = 1
+
+        # # Implement the reality factor
+        # rfact = mod.reality_factor(self.filtname)
         if ff['source_type'] == 'Point':
             # 3.- Synthethic image generation
             # An "image" of radii values from the center is used to see how
@@ -701,19 +711,17 @@ class EmirGui:
             for i in range(len(texp)):
                 im_obj = mod.getspread(fl_obj[i], self.seeing, 1) + fl_sky[i]
                 im_sky = np.zeros_like(im_obj) + fl_sky[i]
-                im_obj = im_obj / rfact
-                im_sky = im_sky / rfact
                 # print (rfact,(im_obj.max()+im_sky.min())/params['gain']\
                 #    /texp[i],im_sky.min()/params['gain']/texp[i])
 
-                if nsky == 0:
-                    # For no sky frames is assumed that the reduction
-                    # is as good as taking a single sky frame.
-                    sky_noise = mod.getnoise(im_sky, texp[i])
-                else:
-                    sky_noise = mod.getnoise(im_sky, texp[i]) / np.sqrt(nsky)
-
-                obj_noise = mod.getnoise(im_obj, texp[i]) / np.sqrt(nobj)
+                # if nsky == 0:
+                #     # For no sky frames is assumed that the reduction
+                #     # is as good as taking a single sky frame.
+                #     sky_noise = mod.getnoise(im_sky, texp[i])
+                # else:
+                # Remove the above as nsky can't be zero in this case
+                sky_noise = mod.getnoise(im_sky, texp[i]) / np.sqrt(self.nsky)
+                obj_noise = mod.getnoise(im_obj, texp[i]) / np.sqrt(self.nobj)
                 total_noise = np.sqrt(sky_noise**2 + obj_noise**2)
                 ston[i][0] = (im_obj - im_sky)[ind].sum()\
                     / np.sqrt((total_noise[ind]**2).sum())
@@ -748,20 +756,18 @@ class EmirGui:
             for i in range(len(texp)):
                 im_obj = np.ones(1)*(fl_obj[i] + fl_sky[i])
                 im_sky = np.ones(1)*fl_sky[i]
-                im_obj = im_obj / rfact
-                im_sky = im_sky / rfact
 
-                if nsky == 0:
-                    # For no sky frames is assumed that the reduction
-                    # is as good as taking a single sky frame.
-                    sky_noise = mod.getnoise(im_sky, texp[i])
-                else:
-                    sky_noise = mod.getnoise(im_sky, texp[i])/ np.sqrt(nsky)
-                obj_noise = mod.getnoise(im_obj, texp[i])/ np.sqrt(nobj)
+                # if nsky == 0:
+                #     # For no sky frames is assumed that the reduction
+                #     # is as good as taking a single sky frame.
+                #     sky_noise = mod.getnoise(im_sky, texp[i])
+                # else:
+                sky_noise = mod.getnoise(im_sky, texp[i])/ np.sqrt(self.nsky)
+                obj_noise = mod.getnoise(im_obj, texp[i])/ np.sqrt(self.nobj)
                 total_noise = np.sqrt(sky_noise**2 + obj_noise**2)
                 ston[i][0] = (im_obj - im_sky) / total_noise
-                ston[i][1] = (im_obj - im_sky) / total_noise
-                ston[i][2] = (im_obj - im_sky) / total_noise
+                ston[i][1] = ston[i][0]
+                ston[i][2] = ston[i][0]
                 satur[i] = mod.checkforsaturation(im_obj)
                 # Added by LRP from MBC's ETC
                 # MBC added 2016-11-28
@@ -775,6 +781,8 @@ class EmirGui:
                 n_counts[i] = total_noise.max()/params['gain']/texp[i]
             # Use only the first noise value in a range:
             n_counts = n_counts[0]
+            n_sky_counts = n_sky_counts[0]
+            n_obj_counts = n_obj_counts[0]
 
         return ston, signal_obj, signal_sky, n_counts, n_sky_counts, n_obj_counts, satur, params, sp_obj, sp_sky
 
@@ -788,22 +796,21 @@ class EmirGui:
             temp_curve = SpecCurve('libs/' + self.available[ff['model']])
             self.obj = temp_curve.interpolate(self.ldo_hr)
             self.obj_units = temp_curve.unity
+
         elif ff['template'] == 'Black body':
             self.bbteff = float(ff['body_temp'])
             self.obj = mod.bbody(self.ldo_hr, self.bbteff)
             # CGF 05/12/16
             self.obj_units = 'normal_photon'
+
         elif ff['template'] == 'Model file':
             # User loaded model
             # CGF 02/12/16
             temp_curve = SpecCurve(ff['model_file'])
             self.obj = temp_curve.interpolate(self.ldo_hr)
             self.obj_units = temp_curve.unity
+
         elif ff['template'] == 'Emission line':
-            # LRP: I don't understand this temp buisness
-            # ... Why do we have 3 loops that seem to do nothing???
-            # It seems to think we can have multiple emission line inputs but
-            # the php wrapper doesn't support this.
             #
             # The input can be several lines separated by commas
             #
@@ -835,6 +842,7 @@ class EmirGui:
             # CGF 05/12/16
             self.obj_units = 'photon/s/m2/micron'
             # mod.emline outputs in photon/s/m2/micron
+        return
 
     def printXML(self, signal_obj, signal_sky, ston, noise, noise_sky, noise_spec, satur, **params):
         """
@@ -854,7 +862,7 @@ class EmirGui:
         se = ET.SubElement
 
         se(o, "fig").text = args[0] + "_fig.png"
-        se(o, "text").text = "<h2>EMIR-ETC Version {}</h2>".format(version)
+        se(o, "text").text = "<h2>EMIR-ETC Version {}</h2>".format(self.version)
         se(o, "text").text = "<b>Source</b>"
 
         if ff['operation'] == 'Photometry':
@@ -913,6 +921,7 @@ class EmirGui:
                 .format(self.res_ele*1e4, self.res_ele/self.dpx)
             se(o, "text").text = "&nbsp;"*4 + "Slit width = {0:.2f} arcsec".format(self.slitwidth)
             se(o, "text").text = "&nbsp;"*4 + "In-slit fraction = {0:.4f} ".format(self.sloss)
+            se(o, "text").text = "&nbsp;"*4 + "In-slit fraction, including decentering of {0:.1f} pixels = {1:.4f} ".format(self.dcen_in, self.sdcen)
             se(o, "text").text = "&nbsp;"*4 + "Nominal Spectral resolution = {0:.4f}".format(self.specres)
             se(o, "text").text = "&nbsp;"*4 + "Achieved Spectral resolution = {0:.4f}".format(self.cenwl/self.res_ele)
 
@@ -920,6 +929,7 @@ class EmirGui:
 
         tabletext = ""
         if self.timerange != 'Range':
+            se(o, "text").text = "&nbsp;"*4 + "Results are calculated using the in-slit fraction including decentering"
             se(o, "text").text = "&nbsp;"*4 + "For {0:d} exposure(s) of {1:.1f} s: ".format(int(self.nobj), self.texp[0])
             if ff['operation'] =='Spectroscopy':
                 if ff['template'] == 'Emission line':
@@ -974,8 +984,10 @@ class EmirGui:
                         .format(signal_obj[0]*px)
                     se(o, "text").text = "&nbsp;"*8 + "sky = {0:.1f}"\
                         .format(signal_sky[0]*px)
-                    se(o, "text").text = "&nbsp;"*4 + "Median S/N per pixel = {0:.1f}".format(ston[0])
-                    se(o, "text").text = "&nbsp;"*4 + "Median S/N per res. element = {0:.1f}".format(ston[0]*np.sqrt(px))
+                    se(o, "text").text = "&nbsp;"*4 + "Median S/N for ABBA from {0:d} frames of {1:.1f} s: ".format(int(self.nobj), self.texp[0])
+                    se(o, "text").text = "&nbsp;"*8 + "S/N per pixel = {0:.1f}".format(ston[0])
+                    se(o, "text").text = "&nbsp;"*8 + "S/N per res. element = {0:.1f}".format(ston[0]*np.sqrt(px))
+                        
             else:  # Photometry
                 se(o, "text").text = "&nbsp;"*4 + "S/N Calculations:"
                 se(o, "text").text = "&nbsp;"*4 + "Per Pixel:"
@@ -1084,7 +1096,22 @@ class EmirGui:
         emir_guy.indent(o)
         tree = ET.ElementTree(o)
         tree.write(args[0] + "_out.xml")
+        return
 
+
+description = ">> Exposure Time Calculator for EMIR. Contact: Lee R. Patrick"
+usage = "%prog [options]"
+
+# version = '2.1.3'
+
+if len(sys.argv) == 1:
+    print(help)
+    sys.exit()
+
+parser = OptionParser(usage=usage, description=description)
+parser.add_option("-d", "--directory", dest="directory",
+                  default='', help='Path of the xml file \n  [%default]')
+option, args = parser.parse_args()
 
 try:
     EmirGui()

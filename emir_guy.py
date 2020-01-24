@@ -1,10 +1,9 @@
 """
-Author: XXX (probably MM)
+Author: XXX
 Date: XXX
 Description: (LRP)
 
-NOTE: Non-standard, variable indentation!
-What is the purpose of this file???
+This file deals with the XML opertations of the ETC
 
 
 Update:
@@ -16,7 +15,6 @@ Description:
 
 import os.path
 import xml.etree.ElementTree as ET
-from etc_config import get_models
 
 
 def readxml(file):
@@ -43,14 +41,11 @@ def indent(elem, level=0):
     else:
         if level and (not elem.tail or not elem.tail.strip()):
             elem.tail = i
-
-
-def load(self):
-    self.available, modelorder = get_models()
-
+    return
 
 def errorxml(elem, text):
     ET.SubElement(elem, "error").text = text
+    return
 
 
 def check_inputs(ff, fname):
@@ -154,6 +149,7 @@ def check_inputs(ff, fname):
         ['photo_exp_time', 'Exp. time', 'range', None, 'Photometry', 0, None],
         ['photo_nf_obj', '#Frames:obj', 'float', None, 'Photometry', 0, None],
         ['photo_nf_sky', '#Frames:sky', 'float', None, 'Photometry', 0, None],
+        # ['nf_sky', '#Frames:sky', 'float', None, 'Photometry', 0, None],
         ['photo_filter', 'Filter', 'select',
             ['Y', 'J', 'H', 'Ks',
              'BrG', 'BrG_cont', 'FeII', 'FeII_cont', 'H2(1-0)', 'H2(2-1)',
@@ -163,6 +159,7 @@ def check_inputs(ff, fname):
         ['spec_grism', 'Grism', 'select', ['J', 'H', 'K', 'YJ', 'HK', 'K_Y']],
         ['spec_exp_time', 'Exp. time', 'range', None, 'Spectroscopy', 0, None],
         ['spec_nf_obj', '#Frames:obj', 'float', None, 'Spectroscopy', 0, None],
+        # ['nf_sky', '#Frames:sky', 'float', None, 'Spectroscopy', 0, None],
         ['spec_nf_sky', '#Frames:sky', 'float', None, 'Spectroscopy', 0, None],
     ]
 
@@ -241,6 +238,7 @@ def check_inputs(ff, fname):
         tree.write(fname + '_out.xml')
         exit()
 
+    return
 
 def model_error(model, fname):
     output = ET.Element("output")
@@ -252,12 +250,14 @@ def model_error(model, fname):
     tree = ET.ElementTree(output)
     tree.write(fname+"_out.xml")
     exit()
+    return
 
 
 def generic_error(fname):
     output = ET.Element("output")
-    errorxml(output, "There is something wrong. Error triggered: emir_guy.generic_error Please, check that all input data are correct. See <a href=\"http://www.iac.es/proyecto/emir/pages/observing-with-emir/observing-tools.php\" target=\"_blank\">here</a> for more info. If the problem remains unsolved, please contact Lee Patrick (lpatrick [at] iac es).")
+    errorxml(output, "Unexpected error. Please, check that all input data are correct. If the problem remains unsolved and you believe you have spotted a bug, please contact Lee Patrick (lpatrick [at] iac es).")
     indent(output)
     tree = ET.ElementTree(output)
     tree.write(fname+"_out.xml")
     exit()
+    return
